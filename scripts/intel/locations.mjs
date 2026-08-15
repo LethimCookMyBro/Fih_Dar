@@ -11,6 +11,12 @@
 import { createRequire } from 'node:module';
 
 import { normalizeText } from './normalize.mjs';
+import {
+  EXPERIMENTAL_LOCATION_FUZZY_PROVINCE,
+  EXPERIMENTAL_LOCATION_FUZZY_DISTRICT,
+  WATERBODY_CAPTURE_MIN_LEN,
+  WATERBODY_CAPTURE_MAX_LEN
+} from './thresholds.mjs';
 
 const require = createRequire(import.meta.url);
 const fuzzball = require('fuzzball');
@@ -167,7 +173,7 @@ export function extractLocation(title, description, sourceLatitude, sourceLongit
   if (!province) {
     const match = PREFIX_PATTERNS[0].exec(text);
     if (match) {
-      const found = bestMatch(PROVINCE_NAMES, match[1], 85);
+      const found = bestMatch(PROVINCE_NAMES, match[1], EXPERIMENTAL_LOCATION_FUZZY_PROVINCE);
       if (found) {
         province = found.candidate;
         evidence.fuzzy.push(`province:${match[1]}→${found.candidate}(${found.score})`);
@@ -197,7 +203,7 @@ export function extractLocation(title, description, sourceLatitude, sourceLongit
       if (known) {
         waterbody = known;
         evidence.matched.push(`waterbody(prefix):${known}`);
-      } else if (capture.length >= 4 && capture.length <= 8) {
+      } else if (capture.length >= WATERBODY_CAPTURE_MIN_LEN && capture.length <= WATERBODY_CAPTURE_MAX_LEN) {
         waterbody = capture;
         evidence.matched.push(`waterbody(prefix):${capture}`);
       }
@@ -208,7 +214,7 @@ export function extractLocation(title, description, sourceLatitude, sourceLongit
   // was already captured as a waterbody is not re-claimed as a district.
   const prefixDistrict = PREFIX_PATTERNS[1].exec(text);
   if (prefixDistrict) {
-    const found = bestMatch(ALL_AMPHOES, prefixDistrict[1], 80);
+    const found = bestMatch(ALL_AMPHOES, prefixDistrict[1], EXPERIMENTAL_LOCATION_FUZZY_DISTRICT);
     if (found) {
       district = found.candidate;
       evidence.fuzzy.push(`district:${prefixDistrict[1]}→${found.candidate}(${found.score})`);

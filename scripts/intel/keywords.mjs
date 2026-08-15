@@ -18,6 +18,25 @@ export const SPECIES_TERMS = [
 /** Generic tilapia (a different species — Nile tilapia farming, catch stats). */
 export const GENERIC_TILAPIA_TERMS = ['ปลานิล', 'nile tilapia'];
 
+/**
+ * Species hard gate. ONLY EXPLICIT_BLACKCHIN may enter the Blackchin Tilapia
+ * sighting/event pipeline. Generic-tilapia and other-species content may stay
+ * as contextual external data but is never blackchin-sighting evidence. The
+ * gate is recorded on every row and never deletes source data.
+ */
+export const SPECIES_EVIDENCE = {
+  EXPLICIT_BLACKCHIN: 'EXPLICIT_BLACKCHIN', // text names ปลาหมอคางดำ / Blackchin tilapia / S. melanotheron
+  AMBIGUOUS_TILAPIA: 'AMBIGUOUS_TILAPIA', // tilapia mentioned, species unclear (e.g. only ปลานิล)
+  OTHER_SPECIES: 'OTHER_SPECIES', // an identifiable non-blackchin fish (reserved; not detected yet)
+  NONE: 'NONE' // no fish species mentioned
+};
+
+export function speciesEvidenceFor(classification) {
+  if (classification.speciesHit.length > 0) return SPECIES_EVIDENCE.EXPLICIT_BLACKCHIN;
+  if (classification.genericHit.length > 0) return SPECIES_EVIDENCE.AMBIGUOUS_TILAPIA;
+  return SPECIES_EVIDENCE.NONE;
+}
+
 // All patterns are matched against lowercased, NFKC-normalized text.
 export const CATEGORY_PATTERNS = {
   // Actual/possible sighting language: spread, discovery, infestation.
@@ -77,14 +96,18 @@ export function classifyText(title, description) {
 
   const ranked = KIND_ORDER.filter((kind) => kindScores[kind] > 0)
     .sort((a, b) => kindScores[b] - kindScores[a]);
-  const kind = ranked[0] ?? (speciesHit.length > 0 ? 'UNRELATED' : 'UNRELATED');
+  const kind = ranked[0] ?? 'UNRELATED';
+
+  const speciesEvidence = speciesEvidenceFor({ speciesHit, genericHit });
 
   return {
     kind,
     kindScores,
     speciesHit,
     genericHit,
+    speciesEvidence,
     evidence: {
+      speciesEvidence,
       speciesTerms: speciesHit,
       genericTilapiaTerms: genericHit,
       categoryHits: hits
@@ -95,15 +118,19 @@ export function classifyText(title, description) {
 /**
  * Verdict from keyword evidence. Three-way, conservative: relevance here means
  * "worth a human's attention", never "confirmed biological occurrence".
+ *
+ * Species hard gate: only EXPLICIT_BLACKCHIN rows can reach RELEVANT.
+ * AMBIGUOUS_TILAPIA / NONE are IRRELEVANT for blackchin purposes (they may
+ * remain contextual data — nothing is deleted).
  */
 export function verdictFromEvidence(classification) {
-  const { kind, speciesHit, genericHit, kindScores } = classification;
+  const { kind, speciesEvidence, kindScores } = classification;
 
-  if (speciesHit.length === 0 && genericHit.length > 0) {
-    return { verdict: 'IRRELEVANT', reason: 'generic tilapia (different species), no blackchin mention' };
+  if (speciesEvidence === SPECIES_EVIDENCE.NONE) {
+    return { verdict: 'IRRELEVANT', reason: 'no fish species terms' };
   }
-  if (speciesHit.length === 0) {
-    return { verdict: 'IRRELEVANT', reason: 'no target species terms' };
+  if (speciesEvidence === SPECIES_EVIDENCE.AMBIGUOUS_TILAPIA) {
+    return { verdict: 'IRRELEVANT', reason: 'generic tilapia (different species), no blackchin mention' };
   }
   if (kind === 'SIGHTING' || kind === 'CONTROL_REMOVAL') {
     return { verdict: 'RELEVANT', reason: `${kind} language present (${kindScores[kind]} hit(s))` };

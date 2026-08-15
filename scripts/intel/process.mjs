@@ -72,7 +72,16 @@ async function main() {
         observation.latitude,
         observation.longitude
       );
-      results.push({ observation, scored, location });
+      // Evidence is built once per row and reused by later stages (dedupe,
+      // events) — later updates must merge into THIS object, never read the
+      // stale DB copy back.
+      const evidenceForDb = {
+        pipelineVersion: 1,
+        textHash: sha256Hex(`${observation.title} ${observation.description ?? ''}`),
+        ...scored.evidence,
+        location: location.evidence
+      };
+      results.push({ observation, scored, location, evidenceForDb });
     } catch (error) {
       failed += 1;
       console.error(`intel: row ${observation.id} failed: ${error.message ?? error}`);
@@ -85,7 +94,7 @@ async function main() {
 
   // ---- persist enrichment ---------------------------------------------------
   const updated = [];
-  for (const { observation, scored, location } of results) {
+  for (const { observation, scored, location, evidenceForDb } of results) {
     updated.push(
       prisma.externalObservation.update({
         where: { id: observation.id },
@@ -100,12 +109,7 @@ async function main() {
           normalizedWaterbody: location.waterbody,
           relevanceVerdict: scored.verdict,
           relevanceKind: scored.classification.kind,
-          evidence: {
-            pipelineVersion: 1,
-            textHash: sha256Hex(`${observation.title} ${observation.description ?? ''}`),
-            ...scored.evidence,
-            location: location.evidence
-          }
+          evidence: evidenceForDb
         }
       })
     );
@@ -120,12 +124,13 @@ async function main() {
   for (const [id, info] of nearDuplicates) {
     const row = results.find((r) => r.observation.id === id);
     if (!row) continue;
-    const evidence = row.observation.evidence ?? {};
+    // Merge into the freshly computed evidence — never the stale DB copy.
+    const evidence = { ...row.evidenceForDb, nearDuplicate: info.evidence };
     await prisma.externalObservation.update({
       where: { id },
       data: {
         duplicateOfId: info.duplicateOfId,
-        evidence: { ...evidence, nearDuplicate: info.evidence }
+        evidence
       }
     });
     linked += 1;

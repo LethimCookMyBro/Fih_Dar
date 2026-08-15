@@ -17,15 +17,16 @@ import { createRequire } from 'node:module';
 import { normalizeText } from './normalize.mjs';
 import { cosineSimilarity } from './embed.mjs';
 import { minhashFor } from './dedupe.mjs';
+import {
+  EXPERIMENTAL_EVENT_WINDOW_DAYS as EVENT_WINDOW_DAYS,
+  EXPERIMENTAL_CLUSTER_SPAN_DAYS as CLUSTER_SPAN_DAYS,
+  EXPERIMENTAL_SEMANTIC_SIMILARITY as SEMANTIC_SIMILARITY,
+  EXPERIMENTAL_FUZZY_RATIO as FUZZY_RATIO,
+  EXPERIMENTAL_MIN_JACCARD as MIN_JACCARD
+} from './thresholds.mjs';
 
 const require = createRequire(import.meta.url);
 const fuzzball = require('fuzzball');
-
-const EVENT_WINDOW_DAYS = 21;
-const CLUSTER_SPAN_DAYS = 14;
-const SEMANTIC_SIMILARITY = 0.75;
-const FUZZY_RATIO = 90;
-const MIN_JACCARD = 0.3; // distinct stories share few bigrams; rewrites share many
 
 function dayDifference(a, b) {
   if (!a || !b) return 0;

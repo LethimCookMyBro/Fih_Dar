@@ -24,6 +24,7 @@
     "intel:test": "node scripts/intel/self-test.mjs",
     "intel:benchmark": "node --env-file=.env scripts/intel/benchmark.mjs",
     "intel:export-review": "node --env-file=.env scripts/intel/export-review.mjs",
+    "intel:export-review-csv": "node --env-file=.env scripts/intel/export-review-csv.mjs",
     "waterways:download": "node scripts/intel/waterways/download.mjs",
     "waterways:analyze": "node --env-file=.env scripts/intel/waterways/analyze.mjs",
     "waterways:graph": "node scripts/intel/waterways/graph.mjs"

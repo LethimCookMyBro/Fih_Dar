@@ -49,6 +49,7 @@ async function main() {
       label: [
         `verdict:${observation.relevanceVerdict ?? 'UNKNOWN'}`,
         `kind:${observation.relevanceKind ?? 'UNKNOWN'}`,
+        `species:${evidence.speciesEvidence ?? 'NONE'}`,
         `location:${observation.locationPrecision ?? 'UNKNOWN'}`
       ],
       meta: {

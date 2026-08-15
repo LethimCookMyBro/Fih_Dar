@@ -7,6 +7,7 @@
 // for manual inspection before any threshold is trusted.
 
 import { classifyText, verdictFromEvidence } from './keywords.mjs';
+import { EXPERIMENTAL_SEMANTIC_UNCERTAIN_UPGRADE } from './thresholds.mjs';
 
 // Prototype texts used as semantic anchors. Written as neutral Thai sentences;
 // e5 uses 'query:' prefixes for these.
@@ -45,7 +46,7 @@ export function scoreRelevance({ title, description }, semantic) {
       semantic[kind] > semantic[best] ? kind : best, PROTOTYPE_ORDER[0]);
     evidence.semantic.bestKind = bestKind;
     evidence.semantic.bestScore = Math.round(semantic[bestKind] * 1000) / 1000;
-    if (verdict === 'UNCERTAIN' && semantic.SIGHTING >= 0.75) {
+    if (verdict === 'UNCERTAIN' && semantic.SIGHTING >= EXPERIMENTAL_SEMANTIC_UNCERTAIN_UPGRADE) {
       verdict = 'RELEVANT';
       reason = `uncertain keyword context; semantic similarity to sighting prototype ${semantic.SIGHTING.toFixed(2)}`;
     }

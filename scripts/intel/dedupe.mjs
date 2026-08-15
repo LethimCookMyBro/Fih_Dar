@@ -18,13 +18,14 @@ import { createRequire } from 'node:module';
 import { Minhash, LshIndex } from 'minhash';
 
 import { charBigrams, normalizeText, sha256Hex } from './normalize.mjs';
+import {
+  MINHASH_NUM_PERM as NUM_PERM,
+  MINHASH_LSH_BAND_SIZE as BAND_SIZE,
+  EXPERIMENTAL_NEAR_DUPE_FUZZY_CONFIRM as FUZZY_CONFIRM
+} from './thresholds.mjs';
 
 const require = createRequire(import.meta.url);
 const fuzzball = require('fuzzball');
-
-const NUM_PERM = 128;
-const BAND_SIZE = 8;
-const FUZZY_CONFIRM = 88;
 
 export function canonicalSourceUrl(sourceUrl) {
   if (!sourceUrl) return '';
