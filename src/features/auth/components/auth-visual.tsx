@@ -1,118 +1,132 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 import { Icons } from '@/components/icons';
-import { Badge } from '@/components/ui/badge';
+import Waves from '@/components/reactbits/waves';
+import { TextLoop } from '@/components/visuals/text-loop';
 
-const SOURCES = ['ข่าวออนไลน์', 'รายงานประชาชน', 'ข้อมูลภาคสนาม', 'ข้อมูลสาธารณะ'];
-
-const STAGES = ['ตรวจหลักฐานชนิดพันธุ์', 'สกัดสถานที่', 'เชื่อมโยงรายงาน', 'จัดกลุ่มเหตุการณ์', 'จัดลำดับพื้นที่'];
+const PANEL_BG = '#191c1e';
+const KEPPEL = '#2a9d8f';
 
 /**
- * Left-panel storytelling visual: multi-source input → FihDar → structured
- * intelligence output. Static/CSS-only — no fabricated metrics, no per-frame
- * animation library.
+ * Left-panel brand moment: logo + a quiet Waves field + an ambient TextLoop.
+ * Deliberately fixed dark (not theme-driven) — this is a brand panel, not app chrome.
  */
 export function AuthVisual() {
   return (
-    <div className='bg-sidebar relative hidden flex-col justify-between overflow-hidden p-10 lg:flex'>
-      <RadarMotif />
-
+    <div
+      className='relative hidden flex-col justify-between overflow-hidden p-10 lg:flex'
+      style={{ backgroundColor: PANEL_BG }}
+    >
       <Link
         href='/map'
-        className='relative z-10 flex items-center gap-3 rounded-(--nav-radius) focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none'
+        className='relative z-10 flex w-fit items-center gap-3 rounded-(--nav-radius) focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none'
       >
-        <span className='bg-primary text-primary-foreground flex size-(--brand-mark) items-center justify-center rounded-lg'>
-          <Icons.radar className='size-(--nav-icon-lg)' aria-hidden />
+        <span
+          className='flex size-(--brand-mark) items-center justify-center rounded-lg'
+          style={{ backgroundColor: KEPPEL }}
+        >
+          <Icons.radar className='size-(--nav-icon-lg) text-white' aria-hidden />
         </span>
-        <span className='text-sidebar-foreground text-xl font-semibold tracking-tight'>FihDar</span>
+        <span className='text-xl font-semibold tracking-tight text-white'>FihDar</span>
       </Link>
 
-      <div className='relative z-10 flex flex-col items-center gap-5 py-6'>
-        <ChipRow items={SOURCES} />
+      <AuthBackground />
 
-        <FlowArrow />
-
-        <div className='relative flex items-center justify-center'>
-          <span
-            aria-hidden
-            className='bg-primary/15 motion-safe:animate-pulse absolute size-20 rounded-full'
+      {/* Ambient, not the hero — kept to the bottom band so it never competes with the form. */}
+      <div className='relative z-10 mt-auto flex flex-col gap-3'>
+        <p className='font-mono text-[0.6875rem] tracking-[0.22em] text-white/40 uppercase'>
+          EEC • Geospatial Intelligence
+        </p>
+        <div aria-hidden className='h-10 w-full max-w-md opacity-60'>
+          <TextLoop
+            text='FIHDAR • FISH + RADAR'
+            shape='wave'
+            speed={24}
+            direction='forward'
+            separator='•'
+            curviness={36}
+            fontSize={20}
+            fontWeight={600}
+            letterSpacing={1.5}
+            color='rgba(255,255,255,0.42)'
+            pauseOnHover={false}
+            className='h-full w-full'
           />
-          <span className='bg-primary text-primary-foreground relative flex size-14 items-center justify-center rounded-full shadow-lg'>
-            <Icons.radar className='size-6' aria-hidden />
-          </span>
         </div>
-
-        <FlowArrow />
-
-        <ChipRow items={STAGES} variant='outline' className='max-w-md' />
-      </div>
-
-      <div className='text-sidebar-foreground relative z-10 max-w-md'>
-        <p className='text-2xl leading-snug font-medium text-balance'>
-          FihDar — ระบบสารสนเทศเชิงพื้นที่เพื่อการเฝ้าระวังปลาหมอคางดำ
-        </p>
-        <p className='text-muted-foreground mt-4 text-[0.9375rem] leading-relaxed'>
-          เปลี่ยนข้อมูลการพบที่กระจัดกระจาย ให้กลายเป็นข้อมูลที่ช่วยเฝ้าระวังและตัดสินใจเชิงพื้นที่ได้ง่ายขึ้น
-        </p>
       </div>
     </div>
   );
 }
 
-function ChipRow({
-  items,
-  variant = 'secondary',
-  className
-}: {
-  items: string[];
-  variant?: 'secondary' | 'outline';
-  className?: string;
-}) {
+/** Quiet Waves field, replaced by static lines when reduced motion is on. */
+function AuthBackground() {
+  // Not motion/react's useReducedMotion: it reads matchMedia synchronously on the
+  // client during the very first render (no window on the server), which mismatches
+  // the SSR pass since this component branches its actual DOM on the value. Deferring
+  // to useEffect keeps the first client render identical to the server's.
+  const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // Avoid a flash of the wrong variant: render nothing until motion preference resolves.
+  if (reduceMotion === null) return <div aria-hidden className='absolute inset-0' />;
+
   return (
-    <div className={`flex flex-wrap items-center justify-center gap-2 ${className ?? ''}`}>
-      {items.map((item) => (
-        <Badge
-          key={item}
-          variant={variant}
-          className='h-auto px-3 py-1 text-[0.8125rem] font-normal'
-        >
-          {item}
-        </Badge>
-      ))}
+    <div aria-hidden className='absolute inset-0'>
+      {reduceMotion ? (
+        <StaticWaveLines />
+      ) : (
+        <Waves
+          lineColor='rgba(42, 157, 143, 0.5)'
+          backgroundColor='transparent'
+          waveSpeedX={0.0025}
+          waveSpeedY={0.001}
+          waveAmpX={22}
+          waveAmpY={10}
+          xGap={22}
+          yGap={38}
+          friction={0.94}
+          tension={0.004}
+          maxCursorMove={40}
+          mouseInteraction={false}
+        />
+      )}
+      {/* Edge falloff so the field never competes with the brand mark or the ambient label. */}
+      <div
+        className='absolute inset-0'
+        style={{
+          background: `radial-gradient(120% 90% at 30% 15%, transparent 45%, ${PANEL_BG} 92%)`
+        }}
+      />
     </div>
   );
 }
 
-function FlowArrow() {
-  return <Icons.chevronDown aria-hidden className='text-border size-4' strokeWidth={2.5} />;
-}
-
-/** Faint concentric rings + a slow sweep line. Purely decorative (aria-hidden). */
-function RadarMotif() {
+function StaticWaveLines() {
   return (
     <svg
-      aria-hidden
       viewBox='0 0 500 500'
-      className='text-primary/[0.08] pointer-events-none absolute -bottom-24 -start-16 size-[36rem]'
+      className='absolute inset-0 size-full opacity-30'
+      preserveAspectRatio='xMidYMid slice'
     >
-      {[80, 140, 200, 260].map((r) => (
-        <circle key={r} cx='250' cy='250' r={r} fill='none' stroke='currentColor' strokeWidth='1' />
+      {[120, 200, 280, 360].map((y, i) => (
+        <path
+          key={y}
+          d={`M -20 ${y} C 100 ${y - 30}, 150 ${y + 30}, 250 ${y} S 400 ${y - 30}, 520 ${y}`}
+          fill='none'
+          stroke={KEPPEL}
+          strokeWidth={i === 1 ? 1.5 : 1}
+        />
       ))}
-      <path
-        d='M-20 330c90-28 140 22 220-6s150 18 320-16'
-        fill='none'
-        stroke='currentColor'
-        strokeWidth='2.5'
-      />
-      <path
-        d='M-20 390c110-30 160 20 250-8s160 16 300-18'
-        fill='none'
-        stroke='currentColor'
-        strokeWidth='2'
-      />
-      <g className='motion-safe:animate-[spin_16s_linear_infinite] [transform-origin:250px_250px]'>
-        <line x1='250' y1='250' x2='250' y2='10' stroke='currentColor' strokeWidth='1.5' />
-      </g>
     </svg>
   );
 }

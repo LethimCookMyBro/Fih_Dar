@@ -58,6 +58,7 @@
     "fuzzball": "^2.2.6",
     "graphology": "^0.26.0",
     "graphology-shortest-path": "^2.1.0",
+    "gsap": "^3.15.0",
     "input-otp": "^1.4.2",
     "kbar": "^0.1.0-beta.48",
     "maplibre-gl": "^6.3.0",

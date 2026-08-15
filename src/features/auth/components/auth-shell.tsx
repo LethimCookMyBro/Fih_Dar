@@ -9,11 +9,11 @@ import { AuthVisual } from './auth-visual';
  */
 export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className='grid min-h-svh lg:grid-cols-[13fr_10fr]'>
+    <div className='grid min-h-svh lg:grid-cols-[56fr_44fr]'>
       <AuthVisual />
 
-      <div className='flex items-center justify-center px-4 py-10 sm:px-6 lg:p-10'>
-        <div className='flex w-full max-w-md flex-col items-center gap-8'>
+      <div className='bg-muted/30 flex items-center justify-center px-4 py-10 sm:px-6 lg:p-10'>
+        <div className='flex w-full max-w-[440px] flex-col items-center gap-8'>
           <Link
             href='/map'
             className='flex items-center gap-2.5 rounded-(--nav-radius) focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none lg:hidden'

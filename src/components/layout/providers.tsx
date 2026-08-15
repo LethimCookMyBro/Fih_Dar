@@ -15,16 +15,16 @@ const fihdarLocalization = {
     ...thTH.signIn!,
     start: {
       ...thTH.signIn!.start,
-      title: 'เข้าสู่ระบบ FihDar',
-      subtitle: 'เข้าสู่ระบบเพื่อเข้าถึงระบบเฝ้าระวังและข้อมูลเชิงพื้นที่'
+      title: 'เข้าสู่ระบบ',
+      subtitle: 'เข้าสู่ FihDar เพื่อดำเนินการต่อ'
     }
   },
   signUp: {
     ...thTH.signUp!,
     start: {
       ...thTH.signUp!.start,
-      title: 'สร้างบัญชี FihDar',
-      subtitle: 'เข้าร่วมระบบรายงานและเฝ้าระวังปลาหมอคางดำในพื้นที่ภาคตะวันออก'
+      title: 'สร้างบัญชี',
+      subtitle: 'เริ่มใช้งาน FihDar'
     }
   }
 };
