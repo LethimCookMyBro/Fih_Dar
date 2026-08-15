@@ -42,6 +42,23 @@ const LOCATION_PRECISION_SCORE = {
 
 const WEIGHTS = { recency: 0.35, corroboration: 0.35, location: 0.3 };
 
+/**
+ * The real publishing outlet, when derivable, rather than the ingestion feed
+ * identity. Aggregator feeds (e.g. the Google News RSS scraper) tag every row
+ * with the same sourceName ('google-news-th') regardless of which outlet
+ * actually wrote it — but the outlet is reliably present as the last
+ * " - Publisher" segment of the aggregator's own title format. Without this,
+ * every event ingested from one aggregator silently corroborates as
+ * "1 source" even when five different outlets covered it. Falls back to
+ * sourceName for any row where no such suffix exists (e.g. a direct feed).
+ */
+export function publisherOf(title, sourceName) {
+  const parts = String(title ?? '').split(' - ');
+  if (parts.length < 2) return sourceName;
+  const candidate = parts[parts.length - 1].trim();
+  return candidate.length > 0 && candidate.length <= 40 ? candidate : sourceName;
+}
+
 function recencyScore(mostRecentDate, now = new Date()) {
   if (!mostRecentDate) return { score: 0, ageDays: null };
   const ageDays = Math.max(0, (now.getTime() - new Date(mostRecentDate).getTime()) / 86_400_000);
@@ -60,7 +77,7 @@ function locationScore(precision) {
 
 /**
  * @param {object} event
- * @param {{ sourceName: string, duplicateOfId: string | null, id: string }[]} event.members
+ * @param {{ sourceName: string, title: string, duplicateOfId: string | null, id: string }[]} event.members
  * @param {string | Date | null} event.mostRecentPublishedAt
  * @param {'EXACT'|'WATERBODY'|'SUBDISTRICT'|'DISTRICT'|'PROVINCE'|'UNKNOWN'|null} event.locationPrecision
  * @param {Date} [now]
@@ -73,7 +90,9 @@ export function computeEventPriority(event, now = new Date()) {
   const canonicalSources = new Map();
   for (const member of event.members) {
     const canonicalId = member.duplicateOfId ?? member.id;
-    if (!canonicalSources.has(canonicalId)) canonicalSources.set(canonicalId, member.sourceName);
+    if (!canonicalSources.has(canonicalId)) {
+      canonicalSources.set(canonicalId, publisherOf(member.title, member.sourceName));
+    }
   }
   const independentSourceCount = new Set(canonicalSources.values()).size;
 

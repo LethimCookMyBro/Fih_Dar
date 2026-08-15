@@ -9,7 +9,7 @@ import { normalizeText, charBigrams, sha256Hex } from './normalize.mjs';
 import { classifyText, verdictFromEvidence } from './keywords.mjs';
 import { extractLocation } from './locations.mjs';
 import { findNearDuplicates, canonicalSourceUrl } from './dedupe.mjs';
-import { computeEventPriority, rankEvents } from './priority.mjs';
+import { computeEventPriority, rankEvents, publisherOf } from './priority.mjs';
 import { resolveEvents } from './events.mjs';
 import { Minhash } from 'minhash';
 
@@ -261,6 +261,30 @@ const order1 = rankEvents([tieB, tieA], NOW).map((r) => r.event.slug);
 const order2 = rankEvents([tieA, tieB], NOW).map((r) => r.event.slug);
 assert(JSON.stringify(order1) === JSON.stringify(order2), `tied events sort deterministically regardless of input order (got ${order1} vs ${order2})`);
 assert(order1[0] === 'tie-a', 'tie-break falls back to slug ascending');
+
+// --- priority: aggregator-feed publisher extraction (live-corpus regression) ---
+// Found against the live production DB: every Google News RSS row shares
+// sourceName='google-news-th' regardless of which outlet wrote it, so raw
+// sourceName silently collapsed every event to "1 independent source" no
+// matter how many real outlets covered it. The outlet is reliably the last
+// " - Publisher" segment of the aggregator's own title format.
+console.log('priority (aggregator publisher extraction)');
+assert(publisherOf('ปลาหมอคางดำโผล่ทะเล - ผู้จัดการออนไลน์', 'google-news-th') === 'ผู้จัดการออนไลน์', 'extracts publisher from aggregator title suffix');
+assert(publisherOf('พบปลาหมอคางดำที่ชลบุรี', 'data.go.th') === 'data.go.th', 'falls back to sourceName when no " - Publisher" suffix exists');
+const aggregatorEvent = {
+  slug: 'aggregator-multi-outlet',
+  locationPrecision: 'WATERBODY',
+  mostRecentPublishedAt: '2026-08-15T00:00:00Z',
+  members: [
+    { id: 'ag1', title: 'ปลาหมอคางดำโผล่ทะเลโรงโป๊ะ - ผู้จัดการออนไลน์', sourceName: 'google-news-th', publishedAt: '2026-08-15', duplicateOfId: null },
+    { id: 'ag2', title: 'ปลาหมอคางดำ โผล่ทะเลโรงโป๊ะ! - ข่าวสด', sourceName: 'google-news-th', publishedAt: '2026-08-15', duplicateOfId: null },
+    { id: 'ag3', title: 'อึ้ง! ปลาหมอคางดำโผล่ทะเลโรงโป๊ะ - แนวหน้า', sourceName: 'google-news-th', publishedAt: '2026-08-15', duplicateOfId: null }
+  ]
+};
+assert(
+  computeEventPriority(aggregatorEvent, NOW).independentSourceCount === 3,
+  `three different outlets sharing one aggregator sourceName still count as 3 independent sources (got ${computeEventPriority(aggregatorEvent, NOW).independentSourceCount})`
+);
 
 // --- events: transitive activity-kind bridging (live-corpus regression) ---
 // Found in a live 110-row corpus replay: a control-removal row and a

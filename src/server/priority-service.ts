@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma';
 import {
   computeEventPriority,
   rankEvents,
+  publisherOf,
   PRIORITY_VERSION
 } from '../../scripts/intel/priority.mjs';
 
@@ -132,7 +133,7 @@ export async function listPriorityAreas() {
         score: priority.score,
         breakdown: priority.breakdown,
         independentSourceCount: priority.independentSourceCount,
-        sources: [...new Set(event.members.map((m) => m.sourceName))],
+        sources: [...new Set(event.members.map((m) => publisherOf(m.title, m.sourceName)))],
         members: event.members.map((m) => ({
           title: m.title,
           sourceName: m.sourceName,
