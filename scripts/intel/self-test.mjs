@@ -9,6 +9,7 @@ import { normalizeText, charBigrams, sha256Hex } from './normalize.mjs';
 import { classifyText, verdictFromEvidence } from './keywords.mjs';
 import { extractLocation } from './locations.mjs';
 import { findNearDuplicates, canonicalSourceUrl } from './dedupe.mjs';
+import { computeEventPriority, rankEvents } from './priority.mjs';
 import { Minhash } from 'minhash';
 
 let failures = 0;
@@ -168,6 +169,97 @@ const dupes = findNearDuplicates([
 ]);
 assert(dupes.has('b') && dupes.get('b').duplicateOfId === 'a', 'paraphrased duplicate linked to canonical (b→a)');
 assert(!dupes.has('c'), 'unrelated row not flagged');
+
+// --- priority (EXPERIMENTAL MVP operational ranking) ------------------------
+console.log('priority');
+const NOW = new Date('2026-08-16T00:00:00Z');
+const member = (id, sourceName, publishedAt, duplicateOfId = null) => ({ id, sourceName, publishedAt, duplicateOfId });
+
+const fresh3source = {
+  slug: 'fresh-3-source',
+  locationPrecision: 'WATERBODY',
+  mostRecentPublishedAt: '2026-08-15T00:00:00Z',
+  members: [member('a', 'ThaiPBS', '2026-08-15'), member('b', 'PPTV', '2026-08-14'), member('c', 'Ch7', '2026-08-13')]
+};
+const oldSingleSource = {
+  slug: 'old-1-source',
+  locationPrecision: 'WATERBODY',
+  mostRecentPublishedAt: '2026-06-01T00:00:00Z',
+  members: [member('d', 'ThaiPBS', '2026-06-01')]
+};
+const rankedFreshVsOld = rankEvents([oldSingleSource, fresh3source], NOW);
+assert(rankedFreshVsOld[0].event.slug === 'fresh-3-source', 'fresher, corroborated event outranks an old single-source event');
+
+// Duplicate articles (same canonical id) must not inflate corroboration.
+const inflatedByDupes = {
+  slug: 'inflated',
+  locationPrecision: 'PROVINCE',
+  mostRecentPublishedAt: '2026-08-15T00:00:00Z',
+  members: [
+    member('e', 'ThaiPBS', '2026-08-15'),
+    member('f', 'ThaiPBS-mirror', '2026-08-15', 'e'), // near-duplicate of e
+    member('g', 'ThaiPBS-syndicate', '2026-08-15', 'e') // near-duplicate of e
+  ]
+};
+const genuineSingleSource = {
+  slug: 'genuine-1-source',
+  locationPrecision: 'PROVINCE',
+  mostRecentPublishedAt: '2026-08-15T00:00:00Z',
+  members: [member('h', 'ThaiPBS', '2026-08-15')]
+};
+assert(
+  computeEventPriority(inflatedByDupes, NOW).independentSourceCount === 1,
+  'duplicate articles (shared canonical id) do not inflate independent source count'
+);
+assert(
+  computeEventPriority(inflatedByDupes, NOW).score === computeEventPriority(genuineSingleSource, NOW).score,
+  'duplicate-inflated event scores identically to an equivalent genuine single-source event'
+);
+
+// Same real event, 5 independent outlets → corroboration strictly increases.
+const fiveOutlets = {
+  ...fresh3source,
+  slug: 'five-outlets',
+  members: [
+    ...fresh3source.members,
+    member('i', 'Matichon', '2026-08-15'),
+    member('j', 'Khaosod', '2026-08-15')
+  ]
+};
+assert(
+  computeEventPriority(fiveOutlets, NOW).score > computeEventPriority(fresh3source, NOW).score,
+  '5-outlet corroboration scores higher than 3-outlet corroboration'
+);
+
+// Unknown location/date must never silently become a high score.
+const allUnknown = { slug: 'all-unknown', locationPrecision: null, mostRecentPublishedAt: null, members: [member('k', 'X', null)] };
+const unknownResult = computeEventPriority(allUnknown, NOW);
+assert(unknownResult.score <= 10, `unknown location + unknown date → low score, not silently high (got ${unknownResult.score})`);
+assert(unknownResult.breakdown.location.precision === 'UNKNOWN', 'missing precision reported as UNKNOWN, never invented');
+
+// Text volume alone (more members, same 1 real source) must not outrank real corroboration.
+const verbose1Source = {
+  slug: 'verbose-1-source',
+  locationPrecision: 'WATERBODY',
+  mostRecentPublishedAt: '2026-08-15T00:00:00Z',
+  members: [
+    member('l', 'ThaiPBS', '2026-08-15'),
+    member('m', 'ThaiPBS', '2026-08-15', 'l'),
+    member('n', 'ThaiPBS', '2026-08-15', 'l')
+  ]
+};
+assert(
+  computeEventPriority(verbose1Source, NOW).score < computeEventPriority(fresh3source, NOW).score,
+  'low evidence (1 real source, padded with duplicates) cannot outrank genuine multi-source corroboration'
+);
+
+// Deterministic tie-break: identical score inputs must always sort the same way (by slug).
+const tieA = { slug: 'tie-a', locationPrecision: 'PROVINCE', mostRecentPublishedAt: '2026-08-01', members: [member('o', 'X', '2026-08-01')] };
+const tieB = { slug: 'tie-b', locationPrecision: 'PROVINCE', mostRecentPublishedAt: '2026-08-01', members: [member('p', 'Y', '2026-08-01')] };
+const order1 = rankEvents([tieB, tieA], NOW).map((r) => r.event.slug);
+const order2 = rankEvents([tieA, tieB], NOW).map((r) => r.event.slug);
+assert(JSON.stringify(order1) === JSON.stringify(order2), `tied events sort deterministically regardless of input order (got ${order1} vs ${order2})`);
+assert(order1[0] === 'tie-a', 'tie-break falls back to slug ascending');
 
 console.log(failures === 0 ? '\nall intel self-tests passed' : `\n${failures} assertion(s) FAILED`);
 process.exitCode = failures === 0 ? 0 : 1;

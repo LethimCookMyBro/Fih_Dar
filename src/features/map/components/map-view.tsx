@@ -12,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { publicReportsQueryOptions } from '@/features/reports/api/queries';
 import type { Report } from '@/features/reports/api/types';
 import { publicObservationsQueryOptions } from '@/features/observations/api/queries';
+import { PriorityPanel } from '@/features/priority/components/priority-panel';
+import type { PriorityArea } from '@/features/priority/api/types';
 import { INITIAL_VIEW, MAP_STYLE_URL, type QuickPlace } from '@/features/map/constants';
 import {
   CLUSTER_COUNT_LAYER,
@@ -237,6 +239,17 @@ export function MapView() {
     map.flyTo({ center: place.center, zoom: place.zoom, duration: reduceMotion ? 0 : 900 });
   };
 
+  const flyToPriorityArea = (area: PriorityArea) => {
+    const map = mapRef.current;
+    if (!map || !area.coordinate) return;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    map.flyTo({
+      center: [area.coordinate.longitude, area.coordinate.latitude],
+      zoom: Math.max(map.getZoom(), 13),
+      duration: reduceMotion ? 0 : 900
+    });
+  };
+
   const showEmpty = mapReady && !isPending && !isError && reports.length === 0;
 
   return (
@@ -306,6 +319,7 @@ export function MapView() {
             onNavigate={navigateTo}
           />
           <MapLegend count={reports.length} />
+          <PriorityPanel onFly={flyToPriorityArea} />
           <ReportPanel report={selected} onClose={() => setSelectedId(null)} />
         </>
       )}
