@@ -89,6 +89,10 @@ export function resolveEvents(observations, vectorsByObservation) {
   const localities = observations.map((o) => matchedLocality(o.title, o.description));
   const rootLocalities = localities.map((loc) => (loc ? new Set([loc]) : new Set()));
   const activities = observations.map((o) => activityKind(o.title, o.description));
+  // Same transitive-safe tracking as province/locality: a control-removal row
+  // and a promotional row must never end up in one component even when both
+  // only ever compare directly against neutral (no-cue) bridge rows.
+  const rootActivities = activities.map((act) => (act ? new Set([act]) : new Set()));
 
   const union = (a, b) => {
     const ra = find(a);
@@ -97,6 +101,7 @@ export function resolveEvents(observations, vectorsByObservation) {
     parent[ra] = rb;
     for (const v of rootProvinces[ra]) rootProvinces[rb].add(v);
     for (const v of rootLocalities[ra]) rootLocalities[rb].add(v);
+    for (const v of rootActivities[ra]) rootActivities[rb].add(v);
   };
 
   const indexById = new Map(observations.map((o, i) => [o.id, i]));
@@ -118,7 +123,12 @@ export function resolveEvents(observations, vectorsByObservation) {
       if (dayDifference(a.publishedAt, b.publishedAt) > EVENT_WINDOW_DAYS) continue; // time disagreement
       const ra = find(i);
       const rb = find(j);
-      if (ra !== rb && (setsConflict(rootProvinces[ra], rootProvinces[rb]) || setsConflict(rootLocalities[ra], rootLocalities[rb]))) {
+      if (
+        ra !== rb &&
+        (setsConflict(rootProvinces[ra], rootProvinces[rb]) ||
+          setsConflict(rootLocalities[ra], rootLocalities[rb]) ||
+          setsConflict(rootActivities[ra], rootActivities[rb]))
+      ) {
         continue; // merging would bridge two already-known-incompatible components via this pair
       }
       const semantic = vectorsByObservation && vectorsByObservation.get(a.id) && vectorsByObservation.get(b.id)

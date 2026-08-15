@@ -10,6 +10,7 @@ import { classifyText, verdictFromEvidence } from './keywords.mjs';
 import { extractLocation } from './locations.mjs';
 import { findNearDuplicates, canonicalSourceUrl } from './dedupe.mjs';
 import { computeEventPriority, rankEvents } from './priority.mjs';
+import { resolveEvents } from './events.mjs';
 import { Minhash } from 'minhash';
 
 let failures = 0;
@@ -260,6 +261,27 @@ const order1 = rankEvents([tieB, tieA], NOW).map((r) => r.event.slug);
 const order2 = rankEvents([tieA, tieB], NOW).map((r) => r.event.slug);
 assert(JSON.stringify(order1) === JSON.stringify(order2), `tied events sort deterministically regardless of input order (got ${order1} vs ${order2})`);
 assert(order1[0] === 'tie-a', 'tie-break falls back to slug ascending');
+
+// --- events: transitive activity-kind bridging (live-corpus regression) ---
+// Found in a live 110-row corpus replay: a control-removal row and a
+// promotional row never compare directly (both only ever match a neutral
+// no-cue "bridge" row), but without root-level tracking they still ended up
+// in one connected component via that bridge. Mirrors the same mechanism
+// already guarded for province/locality.
+console.log('events (transitive activity bridge)');
+const bridgeRows = [
+  { id: 'CTRL', title: 'ประมงชลบุรีลงกำจัดปลาหมอคางดำที่หาดพัทยา', description: 'เจ้าหน้าที่ประมงลงพื้นที่กำจัดปลาหมอคางดำที่หาดพัทยา', sourceName: 'A', sourceExternalId: 'bridge-a', publishedAt: new Date('2026-05-14T07:00:00Z'), normalizedProvince: 'ชลบุรี', relevanceKind: 'CONTROL_REMOVAL' },
+  { id: 'NEUTRAL', title: 'พบปลาหมอคางดำจำนวนมากที่หาดพัทยา', description: 'ชาวบ้านพบปลาหมอคางดำจำนวนมากที่หาดพัทยา วันนี้', sourceName: 'B', sourceExternalId: 'bridge-b', publishedAt: new Date('2026-05-14T08:00:00Z'), normalizedProvince: 'ชลบุรี', relevanceKind: 'SIGHTING' },
+  { id: 'PROMO', title: 'จัดประกวดกินปลาหมอคางดำที่หาดพัทยา', description: 'จัดกิจกรรมประกวดกินปลาหมอคางดำบริเวณหาดพัทยา', sourceName: 'C', sourceExternalId: 'bridge-c', publishedAt: new Date('2026-05-14T09:00:00Z'), normalizedProvince: 'ชลบุรี', relevanceKind: 'CONTROL_REMOVAL' }
+];
+const bridgeCandidates = resolveEvents(bridgeRows, null);
+const ctrlGroup = bridgeCandidates.find((c) => c.members.some((m) => m.id === 'CTRL'));
+const promoGroup = bridgeCandidates.find((c) => c.members.some((m) => m.id === 'PROMO'));
+assert(
+  !ctrlGroup || !ctrlGroup.members.some((m) => m.id === 'PROMO'),
+  'control-removal row and promotional row never share a group, even via a neutral bridge row'
+);
+assert(!(ctrlGroup && promoGroup && ctrlGroup === promoGroup), 'CTRL and PROMO never resolve to the same group object');
 
 console.log(failures === 0 ? '\nall intel self-tests passed' : `\n${failures} assertion(s) FAILED`);
 process.exitCode = failures === 0 ? 0 : 1;
