@@ -16,8 +16,11 @@
 export const EXPERIMENTAL_EVENT_WINDOW_DAYS = 21;
 
 // Event resolution: max span of one candidate's member dates (hard bucket
-// from cluster start, prevents similarity chaining across months).
-export const EXPERIMENTAL_CLUSTER_SPAN_DAYS = 14;
+// from cluster start, prevents similarity chaining across months). Lowered
+// from 14 to 7 after controlled validation showed 14 let identical text
+// 10 days apart (e19) merge as one event; the largest legitimate same-event
+// gap observed in the controlled corpus is ~3 days (multi-outlet follow-up).
+export const EXPERIMENTAL_CLUSTER_SPAN_DAYS = 7;
 
 // Relevance: semantic similarity (e5 cosine) at or above which an observation
 // counts as similar to a prototype/another observation.

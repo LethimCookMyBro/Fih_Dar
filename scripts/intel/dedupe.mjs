@@ -18,6 +18,7 @@ import { createRequire } from 'node:module';
 import { Minhash, LshIndex } from 'minhash';
 
 import { charBigrams, normalizeText, sha256Hex } from './normalize.mjs';
+import { matchedLocality } from './locations.mjs';
 import {
   MINHASH_NUM_PERM as NUM_PERM,
   MINHASH_LSH_BAND_SIZE as BAND_SIZE,
@@ -111,6 +112,13 @@ export function findNearDuplicates(observations) {
   for (const { a, b } of candidates.values()) {
     const bObs = observations.find((o) => o.id === b);
     if (!bObs) continue;
+    // Location dimension: two articles naming different known EEC sites are
+    // never the same article, however close the text — a shared boilerplate
+    // excerpt (weather-report style ledes, agency disclaimers) must not
+    // collapse genuinely different incidents at different places.
+    const localityA = matchedLocality(a.title, a.description);
+    const localityB = matchedLocality(bObs.title, bObs.description);
+    if (localityA && localityB && localityA !== localityB) continue;
     const ratio = fuzzball.token_set_ratio(
       normalizeText(`${a.title} ${a.description ?? ''}`),
       normalizeText(`${bObs.title} ${bObs.description ?? ''}`)

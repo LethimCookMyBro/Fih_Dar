@@ -44,6 +44,14 @@ const LOCAL_ALIASES = [
   { text: 'พัทยา', province: 'ชลบุรี' }
 ];
 
+// Known EEC beach/waterbody site names used ONLY to distinguish "different
+// named place" for event/dedupe conflict-checking — deliberately NOT part of
+// LOCAL_ALIASES above, so it never changes province/precision extraction
+// (บางแสน is not an amphoe and must stay unmapped there — see location
+// validation case #10). ระยอง is excluded: it is ambiguous with the province
+// name and already covered by normalizedProvince comparisons.
+const KNOWN_SITE_NAMES = ['พัทยา', 'บางแสน', 'บางปะกง', 'หนองค้อ', 'ดอกกราย', 'บางพระ', 'ประแสร์'];
+
 // Site qualifiers that can prefix a local alias. The FULL phrase is preserved
 // as the most-specific place (หาดพัทยา > พัทยา) — the site is never collapsed
 // to the bare alias, and it is never misclassified as a waterbody. Ordered
@@ -430,6 +438,22 @@ export function extractLocation(title, description, sourceLatitude, sourceLongit
   }
 
   return { province, district, subdistrict, waterbody, place, precision, evidence };
+}
+
+/**
+ * Bare known-site name matched in the text (e.g. 'พัทยา', 'บางแสน'),
+ * independent of any site qualifier (ชายหาด/หาด/ทะเล). Unlike `place` from
+ * extractLocation this is stable for equality comparison — "ชายหาดพัทยา" and
+ * "หาดพัทยา" both resolve to the same 'พัทยา' name. Used only by event
+ * grouping's locality-conflict check; never affects province/precision.
+ * Returns null when no known site name appears.
+ */
+export function matchedLocality(title, description) {
+  const text = normalizeText(`${title ?? ''} ${description ?? ''}`);
+  for (const name of KNOWN_SITE_NAMES) {
+    if (text.includes(name)) return name;
+  }
+  return null;
 }
 
 export function listProvinces() {
