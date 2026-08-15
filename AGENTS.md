@@ -32,7 +32,7 @@ Clerk 7 · Prisma 6 + PostgreSQL · MapLibre GL JS 6 · Railway.
 
 ```
 prisma/                    schema + checked-in migration
-public/maplibre/           worker modules copied by postinstall (git-ignored)
+public/maplibre/           worker modules copied by postinstall (committed — they must ship in the Docker build context, see Dockerfile)
 scripts/copy-maplibre-worker.mjs
 src/
   app/
