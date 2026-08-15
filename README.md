@@ -213,9 +213,34 @@ only.
 **Implemented:** interactive waterway map with filters, layers, clustering, heatmap,
 quick navigation, and a detail drawer; citizen reporting end-to-end with real uploads and
 persistence; profile with live counts and the user's own reports; Clerk sign-in/sign-up;
-the full API surface above; Railway-compatible storage and deployment config.
+the full API surface above; Railway-compatible storage and deployment config; an offline
+intelligence pipeline (`npm run db:intel`) that classifies relevance, extracts location,
+links near-duplicates, and groups external observations into event candidates — see
+[docs/FIHDAR_INTELLIGENCE_SPEC.md](./docs/FIHDAR_INTELLIGENCE_SPEC.md); an EXPERIMENTAL
+operational priority ranking over those event candidates, exposed on `/map` — see
+[docs/FIHDAR_PRIORITY_MVP.md](./docs/FIHDAR_PRIORITY_MVP.md).
 
 **Planned / not built:** staff review UI for moving reports out of `PENDING`; automated
 species identification (no model is connected — nothing in the app claims to identify a
 species); external geocoding (map search navigates a curated EEC waypoint list, not a
-geocoder); risk-level scoring (the `riskLevel` column exists but nothing writes it).
+geocoder); risk-level scoring (the `riskLevel` column exists but nothing writes it);
+habitat suitability / protected aquaculture value / field accessibility in the priority
+score (see docs/FIHDAR_PRIORITY_MVP.md §4).
+
+---
+
+## Documentation
+
+- [AGENTS.md](./AGENTS.md) — structure, conventions, map specifics
+- [docs/FIHDAR_INTELLIGENCE_SPEC.md](./docs/FIHDAR_INTELLIGENCE_SPEC.md),
+  [docs/FIHDAR_INTELLIGENCE_ROADMAP.md](./docs/FIHDAR_INTELLIGENCE_ROADMAP.md) — pipeline design
+- [docs/FIHDAR_PRELIMINARY_VALIDATION.md](./docs/FIHDAR_PRELIMINARY_VALIDATION.md),
+  [docs/FIHDAR_SPECIES_GATE_VALIDATION.md](./docs/FIHDAR_SPECIES_GATE_VALIDATION.md),
+  [docs/FIHDAR_LOCATION_VALIDATION.md](./docs/FIHDAR_LOCATION_VALIDATION.md),
+  [docs/FIHDAR_DEDUPE_EVENT_VALIDATION.md](./docs/FIHDAR_DEDUPE_EVENT_VALIDATION.md) —
+  controlled-benchmark validation for each pipeline phase, with measured accuracy and
+  documented limitations (not real-world accuracy claims)
+- [docs/FIHDAR_PRIORITY_MVP.md](./docs/FIHDAR_PRIORITY_MVP.md) — operational priority scoring
+- [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) — Railway operational reference
+- [docs/AI_USAGE_DISCLOSURE.md](./docs/AI_USAGE_DISCLOSURE.md),
+  [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) — disclosure and attribution

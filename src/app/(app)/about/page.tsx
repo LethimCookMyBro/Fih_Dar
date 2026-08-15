@@ -144,6 +144,31 @@ export default function AboutPage() {
         </p>
       </Section>
 
+      <Section title='ข้อมูลจริง vs ข้อมูลทดลอง' className='mt-10 md:mt-12'>
+        <p className='text-muted-foreground leading-relaxed'>
+          FihDar เป็นต้นแบบสำหรับการแข่งขัน (hackathon prototype) ทุกหน้าจอระบุสถานะของข้อมูลอย่างตรงไปตรงมา:
+        </p>
+        <ul className='divide-border border-border divide-y border-t text-[0.9375rem]'>
+          <li className='py-3'>
+            <span className='font-semibold'>ข้อมูลจริง</span> — รายงานจากประชาชนที่บันทึกในระบบ
+            และข่าว/ประกาศจากแหล่งข้อมูลสาธารณะที่รวบรวมไว้
+          </li>
+          <li className='py-3'>
+            <span className='font-semibold'>ข้อมูลที่ประมวลผลได้</span> — ชนิดพันธุ์ ตำแหน่ง
+            และการจัดกลุ่มเหตุการณ์ที่สกัดได้จากข้อความต้นฉบับด้วยกฎที่อธิบายได้ ไม่ใช่การยืนยันทางชีววิทยา
+          </li>
+          <li className='py-3'>
+            <span className='font-semibold'>ข้อมูลทดลอง (EXPERIMENTAL)</span> — อันดับความสำคัญของพื้นที่
+            (Priority MVP) คำนวณจากความใหม่ของข่าว จำนวนแหล่งข่าวอิสระ และความชัดเจนของตำแหน่งเท่านั้น
+            ยังไม่รวมความเหมาะสมของถิ่นอาศัย มูลค่าการเพาะเลี้ยงที่ต้องปกป้อง หรือความสะดวกในการเข้าถึงพื้นที่ —
+            ส่วนขยายของงานวิจัยฉบับเต็มในอนาคต
+          </li>
+        </ul>
+        <p className='text-muted-foreground text-[0.9375rem] leading-relaxed'>
+          การพัฒนาใช้เครื่องมือผู้ช่วยเขียนโค้ดที่มี AI ร่วมด้วย ภายใต้การออกแบบ ทบทวน และรับผิดชอบผลงานทั้งหมดโดยทีมงาน
+        </p>
+      </Section>
+
       <Section title='ทีมงาน' className='mt-10 md:mt-12'>
         <p className='text-muted-foreground text-[0.9375rem] leading-relaxed'>
           ข้อมูลทีมงานจะเผยแพร่เมื่อพร้อม
