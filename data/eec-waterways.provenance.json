@@ -1,0 +1,25 @@
+{
+  "dataset": "EEC waterways (Chachoengsao, Chonburi, Rayong)",
+  "source": "OpenStreetMap via Overpass API (public endpoints)",
+  "derivedFrom": "OSM ways tagged waterway in {river, stream, canal, drain, tidal_channel}",
+  "bbox": {
+    "south": 12.5,
+    "west": 100.75,
+    "north": 14,
+    "east": 101.9
+  },
+  "license": "ODbL 1.0 — © OpenStreetMap contributors. Requires attribution and share-alike for derivative databases.",
+  "attribution": "© OpenStreetMap contributors",
+  "generatedAt": "2026-08-15T12:03:00.336Z",
+  "query": "[out:json][timeout:90];\n(\n  way[\"waterway\"~\"^(river|stream|canal|drain|tidal_channel)$\"](12.5,100.75,14,101.9);\n);\nout geom;",
+  "stats": {
+    "total": 3483,
+    "named": 728,
+    "byType": {
+      "river": 962,
+      "canal": 1264,
+      "stream": 934,
+      "drain": 323
+    }
+  }
+}

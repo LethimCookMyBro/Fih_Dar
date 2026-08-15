@@ -23,6 +23,34 @@ enum RiskLevel {
   HIGH
 }
 
+/// Processing lifecycle of an ingested external observation through the
+/// intelligence worker (RAW → PROCESSED, or FAILED with the error preserved).
+enum ObservationProcessingStatus {
+  RAW
+  PROCESSED
+  FAILED
+}
+
+/// How precisely a location is known. Derived ONLY from what a source actually
+/// states — province-level text never invents an EXACT coordinate.
+enum LocationPrecision {
+  EXACT
+  WATERBODY
+  SUBDISTRICT
+  DISTRICT
+  PROVINCE
+  UNKNOWN
+}
+
+/// Three-way relevance verdict from the explainable pipeline. Thresholds are
+/// documented in docs/intelligence.md; verdicts never imply a confirmed
+/// biological occurrence.
+enum RelevanceVerdict {
+  RELEVANT
+  IRRELEVANT
+  UNCERTAIN
+}
+
 model UserProfile {
   id           String           @id @default(uuid()) @db.Uuid
   clerkUserId  String           @unique
@@ -96,4 +124,73 @@ model ExternalObservation {
   @@unique([sourceName, sourceExternalId])
   @@index([sourceName])
   @@index([status])
+
+  // --- Intelligence enrichment (populated by `npm run db:intel`) -------------
+  // All fields are additive; the raw source text (title/description) is never
+  // overwritten. RAW records stay fully usable if processing fails.
+  processingStatus ObservationProcessingStatus @default(RAW)
+  processedAt       DateTime?
+  processingError   String?
+
+  // Normalized location from deterministic extraction + fuzzy matching.
+  locationPrecision    LocationPrecision @default(UNKNOWN)
+  normalizedProvince   String?
+  normalizedDistrict   String?
+  normalizedSubdistrict String?
+  normalizedWaterbody  String?
+
+  // Explainable relevance: component scores live in `evidence`; the verdict is
+  // the pipeline's classification, never an automatic biological confirmation.
+  relevanceVerdict RelevanceVerdict?
+  relevanceKind    String?
+  evidence         Json?
+
+  // Near-duplicate handling: never deletes — points at the canonical row.
+  duplicateOfId String?              @db.Uuid
+  duplicateOf   ExternalObservation? @relation("ObservationDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  duplicates    ExternalObservation[] @relation("ObservationDuplicates")
+
+  // Derived spatial association — kept strictly separate from the source
+  // latitude/longitude above (which are always source-provided, never invented).
+  derivedNearestWaterway  String?
+  derivedDistanceMeters   Float?
+  derivedWaterwaySource   String?
+
+  eventCandidates EventCandidateObservation[]
+
+  @@index([processingStatus])
+  @@index([locationPrecision])
+  @@index([relevanceVerdict])
+  @@index([duplicateOfId])
+  @@index([normalizedProvince])
+}
+
+/// Experimental grouping of several observations that may reference the same
+/// real-world event. Status stays EXPERIMENTAL — grouping never verifies.
+model EventCandidate {
+  id               String   @id @default(uuid()) @db.Uuid
+  slug             String   @unique
+  status           String   @default("EXPERIMENTAL")
+  kind             String?
+  province         String?
+  eventDate        DateTime?
+  locationPrecision LocationPrecision?
+  evidence         Json?
+  observations     EventCandidateObservation[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model EventCandidateObservation {
+  candidateId   String   @db.Uuid
+  observationId String   @db.Uuid
+  role          String   @default("supporting")
+  addedBy       String   @default("intel-worker")
+  createdAt     DateTime @default(now())
+
+  candidate    EventCandidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  observation  ExternalObservation @relation(fields: [observationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([candidateId, observationId])
+  @@index([observationId])
 }

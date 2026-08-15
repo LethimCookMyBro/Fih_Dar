@@ -16,7 +16,7 @@ pnpm-lock.yaml
 
 # production
 /build
-/.data/uploads/
+/.data/
 
 # misc
 .DS_Store
