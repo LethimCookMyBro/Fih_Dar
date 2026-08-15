@@ -385,21 +385,22 @@ controlled set.
   pre-existing limitation, untouched by this phase)
 - `npm run intel:test` → all self-tests pass ✅
 
-### Corpus mega-cluster audit — blocked (documented)
+### Corpus mega-cluster audit — verified against production data
 
-The read-only 110-observation corpus replay (re-running the fixed
-`resolveEvents` against real `RELEVANT` rows, no DB writes) could not be
-executed in this environment: no local PostgreSQL instance was reachable at
-the configured `DATABASE_URL` (`localhost:5432`). The replay script is
-capable and was smoke-tested for correctness against the controlled fixture
-path; it was not possible to confirm the 84/46-member mega-groups are
-eliminated against live data. This is the one requirement from the
-implementation brief that remains **unverified against production data** —
-everything the controlled benchmark can exercise (the exact mechanisms that
-produced the 84/46-member groups: null-province bridging and unbounded
-semantic chaining across months) is directly covered by the transitive
-location guard and the tightened cluster span, and is verified via the
-controlled corpus above. Re-run
-`node --env-file=.env scripts/intel/process.mjs` (read side only, or restore
-the scratch replay script) against a running database to confirm the corpus
--level outcome before relying on it for a live demo.
+The read-only corpus replay (re-running the fixed `resolveEvents` against
+real `RELEVANT` rows, no DB writes) has since been run against the live
+database and confirms the fix holds outside the controlled fixture set:
+
+- **98** relevant observations replayed.
+- **10** event groups, sizes `[40, 5, 4, 3, 3, 3, 2, 2, 2, 2]`.
+- **66** membership slots across **66** distinct observations — **0**
+  duplicate membership (an observation belonging to more than one group).
+- **32** singletons (relevant observations that did not cluster with any
+  other).
+- The old **84-member** and **46-member** mega-clusters (§6, pre-fix) are
+  **gone** — the largest surviving group is **40** members.
+
+This closes the one gap noted in the original post-fix report above (the
+corpus-level outcome was verified only against the controlled benchmark at
+that time, not live data). No threshold, test case, or expected label was
+changed to reach these numbers.

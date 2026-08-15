@@ -62,7 +62,7 @@ function AreaCard({ area, onFly }: { area: PriorityArea; onFly: (area: PriorityA
         </span>
         <span className='inline-flex items-center gap-1'>
           <Icons.checks className='size-3.5' aria-hidden />
-          {area.independentSourceCount} แหล่งข่าวอิสระ
+          {area.independentSourceCount} สำนักข่าว
         </span>
         {!area.coordinate && (
           <span className='inline-flex items-center gap-1'>
@@ -81,7 +81,7 @@ function AreaCard({ area, onFly }: { area: PriorityArea; onFly: (area: PriorityA
               <dd className='tabular-nums'>{area.breakdown.recency.score}/100</dd>
             </div>
             <div className='flex justify-between'>
-              <dt>จำนวนแหล่งข่าวอิสระยืนยัน</dt>
+              <dt>จำนวนสำนักข่าวที่ยืนยัน</dt>
               <dd className='tabular-nums'>{area.breakdown.corroboration.score}/100</dd>
             </div>
             <div className='flex justify-between'>
