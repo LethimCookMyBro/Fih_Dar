@@ -58,5 +58,7 @@ next-env.d.ts
 # Sentry Config File
 .env.sentry-build-plugin
 
-# maplibre worker modules copied from node_modules by postinstall
-/public/maplibre/
+# NOTE: public/maplibre/* (maplibre-gl worker modules) is intentionally NOT
+# ignored — the worker is served as a static asset and must ship in the Docker
+# build context, which respects .gitignore. Kept in sync by the postinstall
+# script (scripts/copy-maplibre-worker.mjs); re-commit when maplibre bumps.

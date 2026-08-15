@@ -6,7 +6,14 @@
     "browser": true,
     "node": true
   },
-  "ignorePatterns": [".next/**", "out/**", "build/**", "next-env.d.ts", "scripts/**"],
+  "ignorePatterns": [
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "scripts/**",
+    "public/maplibre/**"
+  ],
   "settings": {
     "jsx-a11y": {
       "components": {

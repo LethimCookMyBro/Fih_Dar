@@ -29,6 +29,7 @@ export interface MapLayerToggles {
   reports: boolean;
   waterways: boolean;
   heatmap: boolean;
+  observations: boolean;
 }
 
 export const DAY_RANGES = [
@@ -42,7 +43,8 @@ export const DAY_RANGES = [
 const LAYER_LABELS: Record<keyof MapLayerToggles, string> = {
   reports: 'รายงานที่ยืนยันแล้ว',
   waterways: 'เส้นทางน้ำ',
-  heatmap: 'ความหนาแน่นของรายงานที่ยืนยันแล้ว'
+  heatmap: 'ความหนาแน่นของรายงานที่ยืนยันแล้ว',
+  observations: 'ข้อมูลจากแหล่งภายนอก'
 };
 
 /** Shared surface for anything floating over the map: one border, one soft
@@ -365,6 +367,10 @@ export function MapLegend({ count }: { count: number }) {
           <li className='flex items-center gap-2.5'>
             <span className='bg-primary h-0.5 w-4 shrink-0 rounded' />
             เส้นทางน้ำจากข้อมูลแผนที่
+          </li>
+          <li className='flex items-center gap-2.5'>
+            <span className='bg-brand size-2.5 shrink-0 rotate-45 rounded-[2px] ring-2 ring-white' />
+            ข้อมูลจากแหล่งภายนอก
           </li>
         </ul>
         <p className='text-muted-foreground border-border mt-3 border-t pt-2 text-[0.8125rem] tabular-nums'>

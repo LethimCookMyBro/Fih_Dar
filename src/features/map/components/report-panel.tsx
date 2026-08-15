@@ -83,7 +83,14 @@ export function ReportPanel({ report, onClose }: ReportPanelProps) {
           </header>
 
           <div className='min-h-0 flex-1 overflow-y-auto px-4 pb-6 md:px-5'>
-            <ReportStatusBadge status={report.status} />
+            <div className='flex flex-wrap items-center gap-2'>
+              <ReportStatusBadge status={report.status} />
+              {report.isSeedData && (
+                <span className='bg-muted text-muted-foreground rounded-full px-2.5 py-1 text-[0.75rem]'>
+                  ข้อมูลทดสอบระบบ
+                </span>
+              )}
+            </div>
 
             <dl className='divide-border mt-4 divide-y'>
               <Row label='จังหวัด' value={report.province} />

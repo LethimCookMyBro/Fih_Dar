@@ -35,7 +35,16 @@ function ReportCard({ report }: { report: Report }) {
       )}
       <div className='min-w-0 flex-1'>
         <div className='flex flex-wrap items-center justify-between gap-2'>
-          <p className='font-mono text-[0.9375rem] font-medium'>{report.publicReference}</p>
+          <div className='flex min-w-0 items-center gap-2'>
+            <p className='truncate font-mono text-[0.9375rem] font-medium'>
+              {report.publicReference}
+            </p>
+            {report.isSeedData && (
+              <span className='bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[0.6875rem]'>
+                ข้อมูลทดสอบระบบ
+              </span>
+            )}
+          </div>
           <ReportStatusBadge status={report.status} />
         </div>
         <p className='text-muted-foreground mt-1.5 truncate text-[0.9375rem]'>

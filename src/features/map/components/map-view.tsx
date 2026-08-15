@@ -11,17 +11,21 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { publicReportsQueryOptions } from '@/features/reports/api/queries';
 import type { Report } from '@/features/reports/api/types';
+import { publicObservationsQueryOptions } from '@/features/observations/api/queries';
 import { INITIAL_VIEW, MAP_STYLE_URL, type QuickPlace } from '@/features/map/constants';
 import {
   CLUSTER_COUNT_LAYER,
   CLUSTER_LAYER,
   HEATMAP_LAYER,
+  OBSERVATIONS_LAYER,
   POINT_LAYER,
   SELECTED_LAYER,
+  addObservationsLayer,
   addReportLayers,
   setLayerVisibility,
   setSelectedReport,
   toFeatureCollection,
+  updateObservationsData,
   updateReportData
 } from '@/features/map/lib/report-layers';
 import { loadMapLibre } from '@/features/map/lib/load-maplibre';
@@ -47,22 +51,34 @@ export function MapView() {
   const mapRef = React.useRef<MapLibreMap | null>(null);
   const [mapReady, setMapReady] = React.useState(false);
   const [mapError, setMapError] = React.useState<string | null>(null);
+  // Incrementing this remounts the map — the retry path re-runs the whole
+  // lifecycle (worker, style, layers) instead of a full page reload.
+  const [attempt, setAttempt] = React.useState(0);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [filters, setFilters] = React.useState<MapFilters>({ province: 'all', days: 'all' });
   const [layers, setLayers] = React.useState<MapLayerToggles>({
     reports: true,
     waterways: true,
-    heatmap: false
+    heatmap: false,
+    observations: false
   });
 
   const { data, isPending, isError, refetch, isFetching } = useQuery(publicReportsQueryOptions());
   const reports = React.useMemo(() => filterReports(data?.reports ?? [], filters), [data, filters]);
+  const { data: observationData } = useQuery(publicObservationsQueryOptions());
   const selected = reports.find((report) => report.id === selectedId) ?? null;
 
   // --- map lifecycle ------------------------------------------------------
   React.useEffect(() => {
     let map: MapLibreMap | undefined;
     let cancelled = false;
+    let ready = false;
+
+    // Surface a failure only while the map is still loading. Once the map has
+    // fired 'load', error events are per-tile / per-resource and non-fatal.
+    const fail = (message: string) => {
+      if (!cancelled && !ready) setMapError(message);
+    };
 
     // maplibre-gl touches `window` at import time, so it is only pulled in
     // once the component is actually mounted in the browser.
@@ -91,27 +107,39 @@ export function MapView() {
 
         map.on('error', (event) => {
           if (cancelled) return;
-          setMapError(event.error?.message ?? 'ไม่สามารถโหลดแผนที่ได้');
+          fail(event.error?.message ?? 'ไม่สามารถโหลดแผนที่ได้');
         });
 
         map.on('load', () => {
           if (cancelled || !map) return;
+          ready = true;
           applyWaterwayEmphasis(map);
           addReportLayers(map, toFeatureCollection([]));
+          addObservationsLayer(map);
           setMapReady(true);
         });
       })
       .catch(() => {
-        if (!cancelled) setMapError('ไม่สามารถโหลดไลบรารีแผนที่ได้');
+        fail('ไม่สามารถโหลดไลบรารีแผนที่ได้');
       });
+
+    // Fail hard: if the map has not become ready within 30s (blocked style,
+    // dead worker URL, missing WebGL, …) transition to the error state rather
+    // than spinning on the loading overlay forever.
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled && !ready) {
+        setMapError('การโหลดแผนที่ใช้เวลานานเกินไป ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
+      }
+    }, 30_000);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
       map?.remove();
       mapRef.current = null;
       setMapReady(false);
     };
-  }, []);
+  }, [attempt]);
 
   // --- interaction --------------------------------------------------------
   React.useEffect(() => {
@@ -164,8 +192,27 @@ export function MapView() {
     if (!map || !mapReady) return;
     setLayerVisibility(map, REPORT_LAYERS, layers.reports);
     setLayerVisibility(map, [HEATMAP_LAYER], layers.heatmap);
+    setLayerVisibility(map, [OBSERVATIONS_LAYER], layers.observations);
     setWaterwayVisibility(map, layers.waterways);
   }, [layers, mapReady]);
+
+  // Feed coordinate-bearing observations into their own layer (kept visually
+  // separate from citizen reports; the toggle defaults to off).
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const placed = (observationData?.observations ?? []).filter(
+      (observation) => observation.latitude !== null && observation.longitude !== null
+    );
+    updateObservationsData(
+      map,
+      placed.map((observation) => ({
+        id: observation.id,
+        latitude: observation.latitude as number,
+        longitude: observation.longitude as number
+      }))
+    );
+  }, [observationData, mapReady]);
 
   // Highlight the selected report and centre on it.
   React.useEffect(() => {
@@ -238,9 +285,13 @@ export function MapView() {
           <Button
             variant='outline'
             className='h-11 px-5 text-[0.9375rem]'
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              setMapError(null);
+              setMapReady(false);
+              setAttempt((a) => a + 1);
+            }}
           >
-            โหลดแผนที่ใหม่
+            ลองใหม่อีกครั้ง
           </Button>
         </div>
       )}

@@ -218,7 +218,7 @@ function Sidebar({
       <div
         data-slot='sidebar-gap'
         className={cn(
-          'relative w-(--sidebar-width) bg-transparent transition-[width] duration-(--motion-base) ease-(--ease-standard)',
+          'relative w-(--sidebar-width) bg-transparent transition-[width] duration-(--motion-base) ease-(--ease-standard) motion-reduce:transition-none',
           'group-data-[collapsible=offcanvas]:w-0',
           'group-data-[side=right]:rotate-180',
           variant === 'floating' || variant === 'inset'
@@ -230,7 +230,7 @@ function Sidebar({
         data-slot='sidebar-container'
         data-side={side}
         className={cn(
-          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-(--motion-base) ease-(--ease-standard) data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
+          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-(--motion-base) ease-(--ease-standard) motion-reduce:transition-none data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
           // Adjust the padding for floating and inset variants.
           variant === 'floating' || variant === 'inset'
             ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
@@ -473,10 +473,12 @@ const sidebarMenuButtonVariants = cva(
   [
     'peer/menu-button group/menu-button relative flex w-full items-center gap-3 overflow-hidden rounded-(--nav-radius) px-3 text-left',
     'ring-sidebar-ring outline-hidden group-has-data-[sidebar=menu-action]/menu-item:pr-8',
-    // Collapsed rail: a centred 44px hit area inside the 72px rail.
+    // Collapsed rail: a centred 44px hit area inside the 72px rail. Every
+    // child after the first (the icon) is removed from layout entirely — not
+    // just clipped — so labels never bleed into the narrow rail.
     'group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!',
-    'group-data-[collapsible=icon]:mx-auto',
-    'transition-[background-color,color,width,height,padding] duration-(--motion-fast) ease-(--ease-standard)',
+    'group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:[&>*:not(:first-child)]:hidden',
+    'transition-[background-color,color,width,height,padding] duration-(--motion-fast) ease-(--ease-standard) motion-reduce:transition-none',
     'hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
     'focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground',
     'disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50',

@@ -9,8 +9,14 @@ export const CLUSTER_COUNT_LAYER = 'fihdar-reports-cluster-count';
 export const POINT_LAYER = 'fihdar-reports-point';
 export const HEATMAP_LAYER = 'fihdar-reports-heatmap';
 export const SELECTED_LAYER = 'fihdar-reports-selected';
+export const OBSERVATIONS_SOURCE = 'fihdar-observations';
+export const OBSERVATIONS_LAYER = 'fihdar-observations-point';
+
+export const OBSERVATION_IMAGE = 'fihdar-observation-diamond';
 
 const KEPPEL = '#2A9D8F';
+/** Eggplant #4B2142 as raw RGB for the observation diamond image buffer. */
+const EGGPLANT = [0x4b, 0x21, 0x42] as const;
 /** Matches nothing — the selection layer's resting filter. */
 const NO_SELECTION: ['==', string, string] = ['==', 'id', '__no_selection__'];
 
@@ -158,4 +164,83 @@ export function setLayerVisibility(map: MapLibreMap, ids: string[], visible: boo
   for (const id of ids) {
     if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', value);
   }
+}
+
+// --- External observations (ingested from public sources) -------------------
+
+const OBSERVATION_IMAGE_SIZE = 28;
+
+/** Eggplant diamond on a white ring — visually distinct from keppel report dots. */
+function observationDiamondImage(): { width: number; height: number; data: Uint8Array } {
+  const size = OBSERVATION_IMAGE_SIZE;
+  const center = size / 2 - 0.5;
+  const data = new Uint8Array(size * size * 4);
+  // Manhattan distance in pixel space ≈ 45° rotated square (diamond) test.
+  const inner = 9; // filled core radius
+  const outer = 12; // outer edge of the white stroke ring
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const distance = Math.abs(x - center) + Math.abs(y - center);
+      const offset = (y * size + x) * 4;
+      if (distance <= inner) {
+        data[offset] = EGGPLANT[0];
+        data[offset + 1] = EGGPLANT[1];
+        data[offset + 2] = EGGPLANT[2];
+        data[offset + 3] = 255;
+      } else if (distance <= outer) {
+        data[offset] = 0xff; // white ring
+        data[offset + 1] = 0xff;
+        data[offset + 2] = 0xff;
+        data[offset + 3] = 255;
+      }
+      // else transparent
+    }
+  }
+  return { width: size, height: size, data };
+}
+
+/**
+ * Adds the observations source + layer. Only rows with real coordinates are
+ * ever placed — province-only mentions are kept out of the map entirely rather
+ * than fabricating a position.
+ */
+export function addObservationsLayer(map: MapLibreMap): void {
+  if (map.getSource(OBSERVATIONS_SOURCE)) return;
+  if (!map.hasImage(OBSERVATION_IMAGE)) {
+    map.addImage(OBSERVATION_IMAGE, observationDiamondImage());
+  }
+  map.addSource(OBSERVATIONS_SOURCE, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] }
+  });
+  map.addLayer({
+    id: OBSERVATIONS_LAYER,
+    type: 'symbol',
+    source: OBSERVATIONS_SOURCE,
+    layout: {
+      'icon-image': OBSERVATION_IMAGE,
+      'icon-size': 0.85,
+      'icon-allow-overlap': false
+    }
+  });
+}
+
+export function updateObservationsData(
+  map: MapLibreMap,
+  observations: { id: string; latitude: number; longitude: number }[]
+): void {
+  const source = map.getSource(OBSERVATIONS_SOURCE) as GeoJSONSource | undefined;
+  if (!source) return;
+  source.setData({
+    type: 'FeatureCollection',
+    features: observations.map((observation) => ({
+      type: 'Feature' as const,
+      id: observation.id,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [observation.longitude, observation.latitude]
+      },
+      properties: { id: observation.id }
+    }))
+  });
 }

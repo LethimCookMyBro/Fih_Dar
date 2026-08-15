@@ -22,7 +22,9 @@ const safeReportSelect = {
   district: true,
   observedAt: true,
   quantityRange: true,
-  status: true
+  status: true,
+  isSeedData: true,
+  imagePath: true
 } as const;
 
 export type SafeReport = {
@@ -35,6 +37,8 @@ export type SafeReport = {
   observedAt: Date;
   quantityRange: string;
   status: ReportStatus;
+  isSeedData: boolean;
+  imagePath: string;
 };
 
 function roundCoordinate(value: number): number {
@@ -52,7 +56,12 @@ export function safeReport(report: SafeReport, includeImage = false, publicCoord
     observedAt: report.observedAt,
     quantityRange: report.quantityRange,
     status: report.status,
-    ...(includeImage ? { imageUrl: `/api/reports/${report.id}/image` } : {})
+    // System-validation provenance — the UI renders a restrained marker on
+    // seed records so they are never mistaken for real citizen reports.
+    isSeedData: report.isSeedData,
+    // imageUrl only when a real image exists — seed records carry none and an
+    // imageUrl would point at a route that 404s, leaving broken-image icons.
+    ...(includeImage && report.imagePath ? { imageUrl: `/api/reports/${report.id}/image` } : {})
   };
 }
 
@@ -170,7 +179,7 @@ export async function getReportForViewer(id: string, clerkUserId: string | null)
   const isPublic = report.status === ReportStatus.VERIFIED;
   const isOwner = clerkUserId !== null && report.reporter.clerkUserId === clerkUserId;
   if (!isPublic && !isOwner) return null;
-  return { ...safeReport(report, true, isPublic), imageUrl: `/api/reports/${report.id}/image` };
+  return safeReport(report, true, isPublic);
 }
 
 export async function getReportImageAccess(id: string, clerkUserId: string | null) {

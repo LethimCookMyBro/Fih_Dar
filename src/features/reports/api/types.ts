@@ -42,6 +42,7 @@ export interface Report {
   observedAt: string;
   quantityRange: ReportQuantityRange;
   status: ReportStatus;
+  isSeedData?: boolean;
   imageUrl?: string;
 }
 

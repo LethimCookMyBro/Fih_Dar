@@ -16,7 +16,10 @@
     "postinstall": "prisma generate && node scripts/copy-maplibre-worker.mjs",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:seed": "node --env-file=.env scripts/seed.mjs",
+    "db:clear-seed": "node --env-file=.env scripts/clear-seed.mjs",
+    "db:ingest": "node --env-file=.env scripts/ingest.mjs"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.47",

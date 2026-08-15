@@ -37,6 +37,12 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 
+# maplibre-gl worker modules: the postinstall in stage 1 already copied them
+# into /app/public/maplibre. Re-copy from stage 1 as a belt-and-braces guard so
+# the workers ship in the image even if the build context ever lacks them
+# (public/maplibre is git-ignored by some tooling defaults).
+COPY --from=dependencies /app/public/maplibre ./public/maplibre
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
