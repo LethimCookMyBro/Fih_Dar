@@ -1,0 +1,26 @@
+# Local secrets / env — never uploaded (Railway variables come from the dashboard/CLI)
+.env
+.env.*
+!.env.example
+.env*.local
+
+# Runtime uploads (persistent Volume on Railway)
+.data
+
+# Local build artifacts / dependency trees (Nixpacks installs deps itself)
+node_modules
+.next
+out
+build
+*.tsbuildinfo
+
+# Local tooling metadata
+.vercel
+.freebuff
+.railway
+.clerk
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log

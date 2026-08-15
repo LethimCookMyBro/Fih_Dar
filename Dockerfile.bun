@@ -9,9 +9,12 @@ WORKDIR /app
 # Copy package-related files to leverage Docker cache
 COPY package.json bun.lock* ./
 
-# Install dependencies with frozen lockfile for reproducible builds
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --no-save --frozen-lockfile
+# Install dependencies. Lockfile is intentionally NOT frozen here: package.json
+# may drift from the committed bun.lock (e.g. deps added via npm), and this
+# Dockerfile is the secondary build path.
+# (No --mount=type=cache: the Railway Metal builder rejects cache mounts
+# without an explicit `id`, and the mount is only a build-speed optimisation.)
+RUN bun install --no-save
 
 # ============================================
 # Stage 2: Build the Next.js application
@@ -50,8 +53,15 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Prisma CLI — runs `prisma migrate deploy` on boot so production schema
+# changes are applied before the app starts serving traffic.
+RUN bun add -g prisma@6.19.3
+
 # Copy public assets
 COPY --from=builder --chown=bun:bun /app/public ./public
+
+# Prisma schema + migration history
+COPY --from=builder --chown=bun:bun /app/prisma ./prisma
 
 # Create .next dir with correct permissions for prerender cache
 RUN mkdir .next && chown bun:bun .next
@@ -65,4 +75,4 @@ USER bun
 
 EXPOSE 3000
 
-CMD ["bun", "server.js"]
+CMD ["sh", "-c", "prisma migrate deploy && bun server.js"]

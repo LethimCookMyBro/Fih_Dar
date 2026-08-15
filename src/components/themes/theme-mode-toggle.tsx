@@ -49,13 +49,13 @@ export function ThemeModeToggle() {
           <Button
             variant='secondary'
             size='icon'
-            className='group/toggle size-8'
+            className='group/toggle size-11 md:size-9'
             onClick={handleThemeToggle}
           />
         }
       >
         <Icons.brightness />
-        <span className='sr-only'>Toggle theme</span>
+        <span className='sr-only'>สลับธีมสว่าง/มืด</span>
       </TooltipTrigger>
       <TooltipContent>
         Toggle theme <Kbd>⌘⇧D</Kbd> <Kbd>D D</Kbd>

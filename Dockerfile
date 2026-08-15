@@ -2,21 +2,29 @@
 # Stage 1: Install dependencies
 # ============================================
 
-ARG NODE_VERSION=22-slim
+ARG NODE_VERSION=24-slim
 
 FROM node:${NODE_VERSION} AS dependencies
 
 WORKDIR /app
 
-# Install bun to use bun.lock for dependency resolution
-RUN npm install -g bun
+# openssl so `prisma generate` (in the postinstall below) detects the same
+# OpenSSL major as the slim runtime, keeping the generated engine consistent.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 
-# Copy package-related files to leverage Docker cache
-COPY package.json bun.lock* ./
+# Copy package files to leverage Docker cache.
+# package-lock.json is the committed, reproducible npm lockfile (bun.lock is
+# kept for bun users but the Docker build resolves with npm). prisma/ must be
+# present because the postinstall runs `prisma generate`.
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma
+COPY scripts ./scripts
 
-# Install dependencies with frozen lockfile for reproducible builds
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --no-save --frozen-lockfile
+# Install all dependencies (prod + dev; the builder stage needs dev deps).
+# The postinstall (prisma generate + maplibre worker copy) runs here.
+# No --mount=type=cache: the Railway Metal builder rejects cache mounts
+# without an explicit `id`, and the mount is only a build-speed optimisation.
+RUN npm ci --no-audit --no-fund
 
 # ============================================
 # Stage 2: Build the Next.js application
@@ -55,8 +63,17 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Prisma CLI — runs `prisma migrate deploy` on boot so production schema
+# changes are applied before the app starts serving traffic.
+# openssl is required for Prisma's query engine on slim images.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+RUN npm install -g prisma@6.19.3
+
 # Copy public assets
 COPY --from=builder --chown=node:node /app/public ./public
+
+# Prisma schema + migration history
+COPY --from=builder --chown=node:node /app/prisma ./prisma
 
 # Create .next dir with correct permissions for prerender cache
 RUN mkdir .next && chown node:node .next
@@ -70,4 +87,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "prisma migrate deploy && node server.js"]

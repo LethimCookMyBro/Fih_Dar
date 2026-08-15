@@ -1,16 +1,16 @@
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 
 // Define the base Next.js configuration
 const baseConfig: NextConfig = {
+  // Pinned: a package-lock.json outside this folder otherwise wins root inference.
+  turbopack: { root: dirname(fileURLToPath(import.meta.url)) },
   output: process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'api.slingacademy.com',
-        port: ''
-      },
       {
         protocol: 'https',
         hostname: 'img.clerk.com',
@@ -23,7 +23,6 @@ const baseConfig: NextConfig = {
       }
     ]
   },
-  transpilePackages: ['geist'],
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production'
   }

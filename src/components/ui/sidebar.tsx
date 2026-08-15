@@ -23,9 +23,12 @@ import { IconLayoutSidebar } from '@tabler/icons-react';
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = '16rem';
-const SIDEBAR_WIDTH_MOBILE = '18rem';
-const SIDEBAR_WIDTH_ICON = '3rem';
+// Geometry lives in the theme (src/styles/themes/fihdar.css) so sidebar
+// proportions are part of the design system rather than a magic number here.
+// Fallbacks keep the primitive usable under themes that don't define them.
+const SIDEBAR_WIDTH = 'var(--sidebar-w, 18rem)'; // 288px expanded
+const SIDEBAR_WIDTH_MOBILE = 'var(--sidebar-w-mobile, min(88vw, 20rem))'; // overlay drawer
+const SIDEBAR_WIDTH_ICON = 'var(--sidebar-w-icon, 4.5rem)'; // 72px rail
 const SIDEBAR_KEYBOARD_SHORTCUT = 'b';
 
 type SidebarContextProps = {
@@ -180,7 +183,11 @@ function Sidebar({
           data-sidebar='sidebar'
           data-slot='sidebar'
           data-mobile='true'
-          className='w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden'
+          // `!` is required: Sheet's base styles set the width through a
+          // data-attribute variant (`data-[side=left]:w-3/4`), which outranks a
+          // plain width utility no matter the class order. Without it the drawer
+          // renders at a flat 75% of the viewport instead of the token width.
+          className='w-(--sidebar-width)! max-w-none! bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden'
           style={
             {
               '--sidebar-width': SIDEBAR_WIDTH_MOBILE
@@ -211,7 +218,7 @@ function Sidebar({
       <div
         data-slot='sidebar-gap'
         className={cn(
-          'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear',
+          'relative w-(--sidebar-width) bg-transparent transition-[width] duration-(--motion-base) ease-(--ease-standard)',
           'group-data-[collapsible=offcanvas]:w-0',
           'group-data-[side=right]:rotate-180',
           variant === 'floating' || variant === 'inset'
@@ -223,7 +230,7 @@ function Sidebar({
         data-slot='sidebar-container'
         data-side={side}
         className={cn(
-          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
+          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-(--motion-base) ease-(--ease-standard) data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
           // Adjust the padding for floating and inset variants.
           variant === 'floating' || variant === 'inset'
             ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
@@ -261,7 +268,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       {...props}
     >
       <IconLayoutSidebar />
-      <span className='sr-only'>Toggle Sidebar</span>
+      <span className='sr-only'>เปิด/ปิดแถบนำทาง</span>
     </Button>
   );
 }
@@ -320,7 +327,7 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot='sidebar-header'
       data-sidebar='header'
-      className={cn('flex flex-col gap-2 p-2', className)}
+      className={cn('flex flex-col gap-2 p-3 group-data-[collapsible=icon]:px-2', className)}
       {...props}
     />
   );
@@ -331,7 +338,12 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot='sidebar-footer'
       data-sidebar='footer'
-      className={cn('flex flex-col gap-2 p-2', className)}
+      className={cn(
+        // Divider + generous top padding so the account block reads as its own
+        // zone and never visually collides with the nav list above it.
+        'mt-auto flex flex-col gap-1 border-t border-sidebar-border p-3 group-data-[collapsible=icon]:px-2',
+        className
+      )}
       {...props}
     />
   );
@@ -367,7 +379,10 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot='sidebar-group'
       data-sidebar='group'
-      className={cn('relative flex w-full min-w-0 flex-col p-2', className)}
+      className={cn(
+        'relative flex w-full min-w-0 flex-col p-3 group-data-[collapsible=icon]:px-2',
+        className
+      )}
       {...props}
     />
   );
@@ -455,18 +470,38 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<'li'>) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  'peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
+  [
+    'peer/menu-button group/menu-button relative flex w-full items-center gap-3 overflow-hidden rounded-(--nav-radius) px-3 text-left',
+    'ring-sidebar-ring outline-hidden group-has-data-[sidebar=menu-action]/menu-item:pr-8',
+    // Collapsed rail: a centred 44px hit area inside the 72px rail.
+    'group-data-[collapsible=icon]:size-11! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!',
+    'group-data-[collapsible=icon]:mx-auto',
+    'transition-[background-color,color,width,height,padding] duration-(--motion-fast) ease-(--ease-standard)',
+    'hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
+    'focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground',
+    'disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50',
+    'data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground',
+    // Selected state follows the reference's colour logic — a tinted fill of the
+    // brand hue with the deeper shade for label and icon — expressed in FihDar's
+    // palette, where --accent is already a keppel tint and --accent-foreground
+    // the deep keppel. The fill itself is the indicator, so no extra edge marker:
+    // with a real surface change the marker was redundant decoration.
+    // Non-colour cues (surface + weight) carry the state for colour-blind users.
+    'data-active:bg-accent data-active:font-semibold data-active:text-accent-foreground',
+    'data-active:[&_svg]:text-accent-foreground',
+    '[&_svg]:size-(--nav-icon) [&_svg]:shrink-0 [&_svg]:transition-colors [&>span:last-child]:truncate'
+  ],
   {
     variants: {
       variant: {
-        default: 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+        default: 'hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground',
         outline:
           'bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]'
       },
       size: {
-        default: 'h-8 text-sm',
-        sm: 'h-7 text-xs',
-        lg: 'h-12 text-sm group-data-[collapsible=icon]:p-0!'
+        default: 'h-(--nav-row-h) text-[0.9375rem]',
+        sm: 'h-9 text-sm',
+        lg: 'h-(--nav-row-h-lg) text-[0.9375rem] group-data-[collapsible=icon]:p-0!'
       }
     },
     defaultVariants: {

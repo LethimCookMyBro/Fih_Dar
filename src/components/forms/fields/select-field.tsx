@@ -32,7 +32,9 @@ export function SelectField({
       </FieldLabel>
       <Select
         name={field.name}
-        value={field.state.value}
+        // Same reason as RadioGroupField: `province` and friends default to
+        // undefined, which would mount this uncontrolled and flip on selection.
+        value={field.state.value ?? ''}
         onValueChange={(value) => field.handleChange(value ?? '')}
       >
         <SelectTrigger

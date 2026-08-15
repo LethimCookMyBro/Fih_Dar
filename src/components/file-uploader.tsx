@@ -112,12 +112,12 @@ export function FileUploader(props: FileUploaderProps) {
   const onDrop = React.useCallback(
     (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
       if (!multiple && maxFiles === 1 && acceptedFiles.length > 1) {
-        toast.error('Cannot upload more than 1 file at a time');
+        toast.error('อัปโหลดได้ครั้งละ 1 ไฟล์เท่านั้น');
         return;
       }
 
       if ((files?.length ?? 0) + acceptedFiles.length > maxFiles) {
-        toast.error(`Cannot upload more than ${maxFiles} files`);
+        toast.error(`อัปโหลดได้ไม่เกิน ${maxFiles} ไฟล์`);
         return;
       }
 
@@ -133,7 +133,7 @@ export function FileUploader(props: FileUploaderProps) {
 
       if (rejectedFiles.length > 0) {
         rejectedFiles.forEach(({ file }) => {
-          toast.error(`File ${file.name} was rejected`);
+          toast.error(`ไฟล์ ${file.name} ไม่ผ่านการตรวจสอบ (ชนิดไฟล์หรือขนาดไม่ถูกต้อง)`);
         });
       }
 
@@ -141,12 +141,12 @@ export function FileUploader(props: FileUploaderProps) {
         const target = updatedFiles.length > 0 ? `${updatedFiles.length} files` : `file`;
 
         toast.promise(onUpload(updatedFiles), {
-          loading: `Uploading ${target}...`,
+          loading: `กำลังอัปโหลด ${target}…`,
           success: () => {
             setFiles([]);
-            return `${target} uploaded`;
+            return `อัปโหลด ${target} สำเร็จ`;
           },
-          error: `Failed to upload ${target}`
+          error: `อัปโหลด ${target} ไม่สำเร็จ`
         });
       }
     },
@@ -198,13 +198,13 @@ export function FileUploader(props: FileUploaderProps) {
             )}
             {...dropzoneProps}
           >
-            <input {...getInputProps()} aria-label='Upload files' />
+            <input {...getInputProps()} aria-label='อัปโหลดรูปภาพ' />
             {isDragActive ? (
               <div className='flex flex-col items-center justify-center gap-4 sm:px-5'>
                 <div className='rounded-full border border-dashed p-3'>
                   <Icons.upload className='text-muted-foreground size-7' aria-hidden='true' />
                 </div>
-                <p className='text-muted-foreground font-medium'>Drop the files here</p>
+                <p className='text-muted-foreground font-medium'>วางไฟล์ที่นี่</p>
               </div>
             ) : (
               <div className='flex flex-col items-center justify-center gap-4 sm:px-5'>
@@ -213,14 +213,12 @@ export function FileUploader(props: FileUploaderProps) {
                 </div>
                 <div className='space-y-px'>
                   <p className='text-muted-foreground font-medium'>
-                    Drag {`'n'`} drop files here, or click to select files
+                    ลากรูปภาพมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์
                   </p>
                   <p className='text-muted-foreground/70 text-sm'>
-                    You can upload
                     {maxFiles > 1
-                      ? ` ${maxFiles === Infinity ? 'multiple' : maxFiles}
-                      files (up to ${formatBytes(maxSize)} each)`
-                      : ` a file with ${formatBytes(maxSize)}`}
+                      ? `เลือกได้สูงสุด ${maxFiles} ไฟล์ (ไฟล์ละไม่เกิน ${formatBytes(maxSize)})`
+                      : `ไฟล์ละไม่เกิน ${formatBytes(maxSize)}`}
                   </p>
                 </div>
               </div>

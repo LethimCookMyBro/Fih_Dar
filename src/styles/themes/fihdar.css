@@ -1,0 +1,224 @@
+/* FihDar — Keppel (#2A9D8F) operational, Eggplant (#4B2142) brand accent,
+   Lava Gray neutral system. Roughly 70% neutral / 20% keppel / 10% eggplant. */
+
+[data-theme='fihdar'] {
+  --background: #f5f7f7;
+  --foreground: #202426;
+  --card: #ffffff;
+  --card-foreground: #202426;
+  --popover: #ffffff;
+  --popover-foreground: #202426;
+  --primary: #2a9d8f;
+  --primary-foreground: #ffffff;
+  --secondary: #e9eded;
+  --secondary-foreground: #202426;
+  --muted: #edf0f0;
+  --muted-foreground: #70797d;
+  --accent: #e4f1ef;
+  --accent-foreground: #1f7268;
+  --destructive: #c0392b;
+  --destructive-foreground: #ffffff;
+  --border: #d8dedf;
+  --input: #d8dedf;
+  --ring: #2a9d8f;
+
+  /* Brand accent — used deliberately, not as a surface colour. */
+  --brand: #4b2142;
+  --brand-foreground: #ffffff;
+
+  /* Report status — always paired with an icon/label, never colour alone. */
+  --status-pending: #b26b00;
+  --status-verified: #2a9d8f;
+  --status-rejected: #a13d31;
+
+  --chart-1: #2a9d8f;
+  --chart-2: #4b2142;
+  --chart-3: #70797d;
+  --chart-4: #8ecfc6;
+  --chart-5: #b26b00;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #4f575a;
+  --sidebar-primary: #2a9d8f;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edf0f0;
+  --sidebar-accent-foreground: #202426;
+  --sidebar-border: #e4e9e9;
+  --sidebar-ring: #2a9d8f;
+
+  --font-sans: var(--font-noto-thai), var(--font-inter), system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+
+  --radius: 0.625rem;
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  /* ── Density scale ──────────────────────────────────────────────
+     Single source of truth for control heights and icon sizes, so
+     sizing is not re-decided ad hoc in each component. Read from
+     Tailwind with the arbitrary-property shorthand, e.g. h-(--nav-row-h).
+     Comfortable-but-not-oversized: 44px rows clear the 44px touch
+     target minimum without turning desktop into a tablet UI. */
+  --nav-row-h: 2.75rem; /* 44px — nav rows, icon buttons, list rows */
+  --nav-row-h-lg: 3.5rem; /* 56px — brand + account rows */
+  --nav-icon: 1.25rem; /* 20px — standard nav/control icon */
+  --nav-icon-lg: 1.375rem; /* 22px — emphasised actions */
+  --control-h: 2.75rem; /* 44px — buttons, inputs, selects */
+  --control-h-sm: 2.25rem; /* 36px — dense/secondary controls */
+  --nav-radius: 0.75rem; /* 12px — nav rows: softer than a control, short of a pill */
+
+  /* App header height. Owned here because the map page sizes itself as
+     100svh minus this; when the two drifted apart the map overflowed. */
+  --header-h: 3.5rem; /* 56px */
+  --brand-mark: 2.5rem; /* 40px — logo mark / avatar, matches reference */
+
+  /* Sidebar geometry. 280px expanded matches the reference exactly; the
+     collapsed rail at 72px keeps a 44px hit area centred with 14px of
+     breathing room. */
+  --sidebar-w: 17.5rem; /* 280px */
+  --sidebar-w-icon: 4.5rem; /* 72px */
+  --sidebar-w-mobile: min(88vw, 20rem); /* overlay drawer, caps at 320px */
+
+  /* Motion. Short, no bounce; `standard` is a decelerate curve. */
+  --motion-fast: 160ms;
+  --motion-base: 220ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --shadow-2xs: 0 1px 2px 0 rgb(32 36 38 / 0.04);
+  --shadow-xs: 0 1px 2px 0 rgb(32 36 38 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(32 36 38 / 0.07), 0 1px 2px -1px rgb(32 36 38 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(32 36 38 / 0.08), 0 1px 2px -1px rgb(32 36 38 / 0.05);
+  --shadow-md: 0 4px 8px -2px rgb(32 36 38 / 0.08), 0 2px 4px -2px rgb(32 36 38 / 0.05);
+  --shadow-lg: 0 10px 20px -4px rgb(32 36 38 / 0.09), 0 4px 8px -4px rgb(32 36 38 / 0.05);
+  --shadow-xl: 0 18px 32px -8px rgb(32 36 38 / 0.12);
+  --shadow-2xl: 0 28px 48px -12px rgb(32 36 38 / 0.18);
+}
+
+@media (min-width: 768px) {
+  [data-theme='fihdar'] {
+    --header-h: 3.75rem; /* 60px from md up */
+  }
+}
+
+[data-theme='fihdar'].dark {
+  --background: #14181a;
+  --foreground: #eceff0;
+  --card: #1b2022;
+  --card-foreground: #eceff0;
+  --popover: #1b2022;
+  --popover-foreground: #eceff0;
+  --primary: #35b6a6;
+  --primary-foreground: #08110f;
+  --secondary: #262c2e;
+  --secondary-foreground: #eceff0;
+  --muted: #262c2e;
+  --muted-foreground: #98a1a4;
+  --accent: #1e3b37;
+  --accent-foreground: #6fd8c8;
+  --destructive: #e5705f;
+  --destructive-foreground: #14181a;
+  --border: #2e3538;
+  --input: #2e3538;
+  --ring: #35b6a6;
+
+  --brand: #8f5b81;
+  --brand-foreground: #14181a;
+
+  --status-pending: #e0a343;
+  --status-verified: #35b6a6;
+  --status-rejected: #e5705f;
+
+  --chart-1: #35b6a6;
+  --chart-2: #8f5b81;
+  --chart-3: #98a1a4;
+  --chart-4: #6fd8c8;
+  --chart-5: #e0a343;
+
+  --sidebar: #171b1d;
+  --sidebar-foreground: #c3cacb;
+  --sidebar-primary: #35b6a6;
+  --sidebar-primary-foreground: #08110f;
+  --sidebar-accent: #232a2c;
+  --sidebar-accent-foreground: #eceff0;
+  --sidebar-border: #262c2e;
+  --sidebar-ring: #35b6a6;
+
+  --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.35);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 8px -2px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 10px 20px -4px rgb(0 0 0 / 0.55);
+  --shadow-xl: 0 18px 32px -8px rgb(0 0 0 / 0.6);
+  --shadow-2xl: 0 28px 48px -12px rgb(0 0 0 / 0.7);
+}
+
+[data-theme='fihdar'] {
+  @theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-brand: var(--brand);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-status-pending: var(--status-pending);
+    --color-status-verified: var(--status-verified);
+    --color-status-rejected: var(--status-rejected);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+    /* Point at the next/font variables directly. `--font-sans: var(--font-sans)`
+       is a self-reference: the var() cycle is invalid at computed-value time, so
+       the token resolved to nothing and `font-sans` silently fell back to
+       Tailwind's default stack — Thai rendered in Segoe UI, not Noto Sans Thai.
+       Because this block is `@theme inline`, these are inlined into the utility
+       and resolve against the next/font class on <body>. */
+    --font-sans: var(--font-noto-thai), var(--font-inter), system-ui, sans-serif;
+    --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+    --font-serif: Georgia, serif;
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --shadow-2xs: var(--shadow-2xs);
+    --shadow-xs: var(--shadow-xs);
+    --shadow-sm: var(--shadow-sm);
+    --shadow: var(--shadow);
+    --shadow-md: var(--shadow-md);
+    --shadow-lg: var(--shadow-lg);
+    --shadow-xl: var(--shadow-xl);
+    --shadow-2xl: var(--shadow-2xl);
+    --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+    --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+    --tracking-normal: var(--tracking-normal);
+    --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+    --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+    --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+  }
+}

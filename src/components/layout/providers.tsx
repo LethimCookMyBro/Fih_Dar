@@ -1,5 +1,6 @@
 'use client';
 import { ClerkProvider } from '@clerk/nextjs';
+import { thTH } from '@clerk/localizations';
 import React from 'react';
 import { ActiveThemeProvider } from '../themes/active-theme';
 import QueryProvider from './query-provider';
@@ -15,6 +16,7 @@ export default function Providers({
     <>
       <ActiveThemeProvider initialTheme={activeThemeValue}>
         <ClerkProvider
+          localization={thTH}
           appearance={{
             variables: {
               colorPrimary: 'var(--primary)',

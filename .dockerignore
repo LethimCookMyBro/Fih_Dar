@@ -25,6 +25,7 @@ __mocks__/
 
 # Environment variables
 .env
+.env*
 .env*.local
 .env.development
 .env.test
@@ -72,6 +73,14 @@ Thumbs.db
 .cursor/
 .claude
 AGENTS.md
+
+# Local tooling metadata
+.railway/
+.freebuff/
+.clerk/
+
+# Runtime uploads
+.data/
 
 # Cleanup guide
 __CLEANUP__/

@@ -19,6 +19,19 @@
     @apply bg-background text-foreground;
   }
 
+  /* Icon weight. The reference UI draws its icons at stroke 1.5; Tabler ships
+     stroke 2, which is what made FihDar's iconography read heavier and more
+     "admin template" than the reference. Set once here rather than passing a
+     `stroke` prop at ~200 call sites.
+
+     This works because `stroke-width` is an SVG *presentation attribute* on
+     Tabler's output, and any CSS rule outranks a presentation attribute — so
+     this wins without !important. An icon that genuinely needs a different
+     weight should override with its own class. */
+  .tabler-icon {
+    stroke-width: 1.5;
+  }
+
   /* Global scrollbar styling to match ScrollArea */
   * {
     scrollbar-width: thin;
@@ -44,6 +57,71 @@
   ::-webkit-scrollbar-thumb:hover {
     background-color: var(--muted-foreground);
   }
+}
+
+/* ============================================================
+   MapLibre control restyle
+
+   MapLibre ships 29px controls with their own border/shadow language.
+   Restyled here to FihDar's tokens and enlarged to the 44px touch target,
+   so zoom/locate match the floating controls rather than looking bolted on.
+   Scoped to .maplibregl-ctrl so nothing else is affected.
+   ============================================================ */
+/* Selectors are doubled up (.maplibregl-ctrl.maplibregl-ctrl-group) on purpose.
+   maplibre-gl.css is imported from the map component, so Next injects it AFTER
+   globals.css; at equal specificity MapLibre's own 29px rule would win. The
+   extra class raises specificity to 0-3-1 without resorting to !important. */
+.maplibregl-ctrl.maplibregl-ctrl-group {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--nav-radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.maplibregl-ctrl.maplibregl-ctrl-group button {
+  width: var(--control-h);
+  height: var(--control-h);
+  background: transparent;
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.maplibregl-ctrl.maplibregl-ctrl-group button + button {
+  border-top: 1px solid var(--border);
+}
+
+.maplibregl-ctrl.maplibregl-ctrl-group button:hover {
+  background: var(--accent);
+}
+
+.maplibregl-ctrl.maplibregl-ctrl-group button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+/* MapLibre's icons are background-images tinted for a light chrome; invert them
+   in dark mode so they stay legible on the dark control surface. */
+.dark .maplibregl-ctrl.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.6);
+}
+
+.maplibregl-ctrl-scale {
+  background: var(--background);
+  border-color: var(--border);
+  border-radius: calc(var(--radius) - 4px);
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--background);
+  border-radius: 9999px;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--muted-foreground);
 }
 
 /* View Transition Wave Effect */

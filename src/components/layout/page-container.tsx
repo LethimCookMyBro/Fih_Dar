@@ -1,22 +1,16 @@
 import React from 'react';
 import { Heading } from '../ui/heading';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { InfobarContent } from '@/components/ui/infobar';
 
 function PageSkeleton() {
   return (
-    <div
-      role='status'
-      aria-label='Loading page'
-      className='flex flex-1 animate-pulse flex-col gap-4 p-4 md:px-6'
-    >
-      <div className='flex items-center justify-between'>
-        <div>
-          <div className='bg-muted mb-2 h-8 w-48 rounded' />
-          <div className='bg-muted h-4 w-96 rounded' />
-        </div>
-      </div>
-      <div className='bg-muted mt-6 h-40 w-full rounded-lg' />
-      <div className='bg-muted h-40 w-full rounded-lg' />
+    <div role='status' aria-label='กำลังโหลดหน้า' className='flex flex-1 flex-col gap-4'>
+      <Skeleton className='h-9 w-56' />
+      <Skeleton className='h-5 w-full max-w-md' />
+      <Skeleton className='mt-4 h-44 w-full rounded-xl' />
+      <Skeleton className='h-44 w-full rounded-xl' />
+      <span className='sr-only'>กำลังโหลด…</span>
     </div>
   );
 }
@@ -42,10 +36,10 @@ export default function PageContainer({
 }) {
   if (!access) {
     return (
-      <div role='status' className='flex flex-1 items-center justify-center p-4 md:px-6'>
+      <div role='status' className='flex flex-1 items-center justify-center px-4 py-16'>
         {accessFallback ?? (
-          <div className='text-muted-foreground text-center text-lg'>
-            You do not have access to this page.
+          <div className='text-muted-foreground max-w-sm text-center text-[0.9375rem]'>
+            คุณไม่มีสิทธิ์เข้าถึงหน้านี้
           </div>
         )}
       </div>
@@ -56,19 +50,24 @@ export default function PageContainer({
 
   const hasHeader = pageTitle || pageHeaderAction;
 
+  // Spacing rhythm: 16px mobile → 24px tablet → 32px desktop, matching the
+  // 4/8px scale. max-w keeps line length readable on wide monitors; the map
+  // page opts out entirely by not using PageContainer.
   return (
-    <div className='flex flex-1 flex-col px-4 pt-2 pb-4 md:px-6 md:pt-4'>
-      {hasHeader && (
-        <div className='mb-4 flex items-start justify-between gap-4'>
-          <Heading
-            title={pageTitle ?? ''}
-            description={pageDescription ?? ''}
-            infoContent={infoContent}
-          />
-          {pageHeaderAction && <div className='shrink-0'>{pageHeaderAction}</div>}
-        </div>
-      )}
-      {content}
+    <div className='flex flex-1 flex-col px-4 pt-5 pb-10 sm:px-6 lg:px-8'>
+      <div className='mx-auto flex w-full max-w-5xl flex-1 flex-col'>
+        {hasHeader && (
+          <div className='mb-6 flex flex-wrap items-start justify-between gap-4 md:mb-8'>
+            <Heading
+              title={pageTitle ?? ''}
+              description={pageDescription ?? ''}
+              infoContent={infoContent}
+            />
+            {pageHeaderAction && <div className='shrink-0'>{pageHeaderAction}</div>}
+          </div>
+        )}
+        {content}
+      </div>
     </div>
   );
 }

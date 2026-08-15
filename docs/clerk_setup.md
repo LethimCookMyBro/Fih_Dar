@@ -28,7 +28,7 @@ This starter kit includes multi-tenant workspace management powered by **Clerk O
 - Fully client-side navigation filtering using `useNav` hook
 - Supports `requireOrg`, `permission`, and `role` checks (all client-side, instant)
 - Configured in `src/config/nav-config.ts` with `access` properties
-- See `docs/nav-rbac.md` for detailed documentation
+- Navigation is a flat list in `src/config/nav-config.ts`; there is no RBAC filtering
 
 ### For more information, see:
 

@@ -1,5 +1,16 @@
 import {
   IconAdjustmentsHorizontal,
+  IconCurrentLocation,
+  IconDroplet,
+  IconFish,
+  IconLayersIntersect,
+  IconMap2,
+  IconMapPin,
+  IconMapPinPlus,
+  IconMenu2,
+  IconRadar2,
+  IconTargetArrow,
+  IconFlask,
   IconAlertCircle,
   IconAlertTriangle,
   IconArrowRight,
@@ -219,5 +230,18 @@ export const Icons = {
   slash: IconSlash,
   calendar: IconCalendar,
   galleryVerticalEnd: IconStack2,
-  moreHorizontal: IconDots
+  moreHorizontal: IconDots,
+
+  // FihDar
+  map: IconMap2,
+  mapPin: IconMapPin,
+  mapPinPlus: IconMapPinPlus,
+  radar: IconRadar2,
+  fish: IconFish,
+  droplet: IconDroplet,
+  layers: IconLayersIntersect,
+  locate: IconCurrentLocation,
+  target: IconTargetArrow,
+  flask: IconFlask,
+  menu: IconMenu2
 };

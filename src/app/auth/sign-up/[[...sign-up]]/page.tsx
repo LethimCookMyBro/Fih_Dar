@@ -2,8 +2,8 @@ import { Metadata } from 'next';
 import SignUpViewPage from '@/features/auth/components/sign-up-view';
 
 export const metadata: Metadata = {
-  title: 'Authentication | Sign Up',
-  description: 'Sign Up page for authentication.'
+  title: 'สมัครสมาชิก',
+  description: 'สมัครสมาชิก FihDar เพื่อแจ้งการพบปลาที่น่าสงสัย'
 };
 
 export default function Page() {

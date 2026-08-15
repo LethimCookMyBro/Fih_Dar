@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+  // Ship both engine variants: the Docker build stage runs without OpenSSL
+  // (generates 1.1.x) while the slim runtime has OpenSSL 3 installed, so the
+  // client must carry both or production queries fail to locate an engine.
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReportStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model UserProfile {
+  id           String           @id @default(uuid()) @db.Uuid
+  clerkUserId  String           @unique
+  displayName  String
+  email        String
+  phone        String?
+  organization String?
+  province     String?
+  avatarUrl    String?
+  reports      SightingReport[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model SightingReport {
+  id                  String       @id @default(uuid()) @db.Uuid
+  publicReference     String       @unique
+  reporterId          String       @db.Uuid
+  reporter            UserProfile  @relation(fields: [reporterId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  latitude            Float
+  longitude           Float
+  province            String
+  district            String?
+  subdistrict         String?
+  locationDescription String?
+  observedAt          DateTime
+  quantityRange       String
+  note                String?
+  imagePath           String
+  status              ReportStatus @default(PENDING)
+  riskLevel           RiskLevel?
+  verifiedAt          DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([reporterId])
+  @@index([status])
+  @@index([province])
+  @@index([observedAt])
+  @@index([createdAt])
+}

@@ -31,7 +31,11 @@ export function RadioGroupField({
       {description && <FieldDescription>{description}</FieldDescription>}
       <RadioGroup
         name={field.name}
-        value={field.state.value}
+        // `?? ''` keeps the group controlled from the very first render. Fields
+        // whose form default is `undefined` (e.g. quantityRange) otherwise mount
+        // uncontrolled and flip to controlled on first selection, which React
+        // warns about and which discards the group's internal state mid-life.
+        value={field.state.value ?? ''}
         onValueChange={field.handleChange}
         onBlur={field.handleBlur}
         className='flex flex-wrap gap-x-6 gap-y-2'
