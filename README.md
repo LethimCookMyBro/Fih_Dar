@@ -1,3 +1,5 @@
+มีแค่พระเจ้าที่จะเข้าใจโค้ดในตอนนี้ Amen
+
 # FihDar
 
 **FihDar = Fish + Radar** — a citizen-reporting and GIS surveillance app for suspected
