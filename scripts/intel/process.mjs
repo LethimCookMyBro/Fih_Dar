@@ -79,7 +79,7 @@ async function main() {
         pipelineVersion: 1,
         textHash: sha256Hex(`${observation.title} ${observation.description ?? ''}`),
         ...scored.evidence,
-        location: location.evidence
+        location: { ...location.evidence, place: location.place ?? null }
       };
       results.push({ observation, scored, location, evidenceForDb });
     } catch (error) {

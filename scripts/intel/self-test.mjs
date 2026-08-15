@@ -90,6 +90,63 @@ assert(locExact.precision === 'EXACT', 'source coords → EXACT');
 const locNone = extractLocation('ข่าวทั่วไป', '', null, null);
 assert(locNone.precision === 'UNKNOWN' && locNone.province === null, 'no location → UNKNOWN, no invention');
 
+// --- location candidate ranking (post location-validation fixes) ---
+// Regression tests written BEFORE the fix. The 8 RED cases fail on the
+// current first-match-by-length ordering; the 2 guard cases pass today and
+// protect the new mechanisms from over-demotion.
+const rank1 = extractLocation('เคยพบที่สมุทรสาคร ก่อนพบล่าสุดที่ชลบุรี', '', null, null);
+assert(rank1.province === 'ชลบุรี', `event location beats historical background (got ${rank1.province})`);
+const rank2 = extractLocation('เจ้าหน้าที่จากสมุทรปราการเดินทางไปตรวจเหตุที่ชลบุรี', '', null, null);
+assert(rank2.province === 'ชลบุรี', `event location beats origin mention (got ${rank2.province})`);
+const rank3 = extractLocation('ผู้สื่อข่าวระยองรายงานว่าพบปลาหมอคางดำที่หาดพัทยา', '', null, null);
+assert(rank3.province === 'ชลบุรี', `event location beats publisher location (got ${rank3.province})`);
+const rank4 = extractLocation('พบปลาหมอคางดำที่หาดพัทยา', '', null, null);
+assert(rank4.province === 'ชลบุรี', `Pattaya alias → ชลบุรี (got ${rank4.province})`);
+const rank5 = extractLocation('แม่น้ำระยองพบปลาหมอคางดำ', '', null, null);
+assert(rank5.province === null, `แม่น้ำระยอง must not leak province (got ${rank5.province})`);
+assert(rank5.waterbody === 'ระยอง', `แม่น้ำระยอง → waterbody ระยอง (got ${rank5.waterbody})`);
+assert(rank5.precision === 'WATERBODY', `แม่น้ำระยอง → precision WATERBODY (got ${rank5.precision})`);
+const rank6 = extractLocation('ระยองลุยกำจัดปลาหมอคางดำทั้งจังหวัด', '', null, null);
+assert(rank6.province === 'ระยอง', `province usage ระยอง → province (got ${rank6.province})`);
+assert(rank6.waterbody === null, `province usage must NOT become waterbody (got ${rank6.waterbody})`);
+const rank7 = extractLocation('พบปลาหมอคางดำในบ่อปลาหนองค้อ', '', null, null);
+assert(rank7.waterbody === 'หนองค้อ', `บ่อปลาหนองค้อ → waterbody หนองค้อ (got ${rank7.waterbody})`);
+const rank8 = extractLocation('นายวิชัย ณ พัทลุงแจ้งพบปลาหมอคางดำที่ชลบุรี', '', null, null);
+assert(rank8.province === 'ชลบุรี', `surname ณ พัทลุง must not become event location (got ${rank8.province})`);
+const rank8b = extractLocation('นายวิชัย ณ พัทลุงแจ้งข่าวสถานการณ์ประมง', '', null, null);
+assert(rank8b.province === null, `surname-only ณ พัทลุง → no province (got ${rank8b.province})`);
+// guards — single-candidate fallback and earliest tiebreak must survive
+const guard1 = extractLocation('เคยพบปลาหมอคางดำที่สมุทรปราการเมื่อปีที่แล้ว', '', null, null);
+assert(guard1.province === 'สมุทรปราการ', `sole historical mention still extracted (got ${guard1.province})`);
+const guard2 = extractLocation('พบปลาหมอคางดำระบาดทั้งชลบุรีและระยอง', '', null, null);
+assert(guard2.province === 'ชลบุรี', `two provinces → earliest mention (got ${guard2.province})`);
+
+// --- location granularity (post granularity-review fixes) ---
+// RED first: (1) the ณ-surname boundary must not fire on a ณ glued to the
+// preceding word (บริเวณพัทยา), (2) the most-specific place must survive.
+const gran1 = extractLocation('พบปลาหมอคางดำบริเวณพัทยา', '', null, null);
+assert(gran1.province === 'ชลบุรี', `บริเวณพัทยา → province ชลบุรี (got ${gran1.province})`);
+assert(gran1.place === 'พัทยา', `บริเวณพัทยา → place พัทยา (got ${gran1.place})`);
+assert(gran1.precision === 'PROVINCE', `บริเวณพัทยา → precision PROVINCE (got ${gran1.precision})`);
+const gran2 = extractLocation('พบปลาหมอคางดำบริเวณชลบุรี', '', null, null);
+assert(gran2.province === 'ชลบุรี', `บริเวณชลบุรี → province ชลบุรี (got ${gran2.province})`);
+const gran3 = extractLocation('พบปลาหมอคางดำที่หาดพัทยา', '', null, null);
+assert(gran3.place === 'หาดพัทยา', `หาดพัทยา → place หาดพัทยา (got ${gran3.place})`);
+const gran4 = extractLocation('ปลาหมอคางดำระบาดที่เมืองพัทยา', '', null, null);
+assert(gran4.place === 'เมืองพัทยา', `เมืองพัทยา → place เมืองพัทยา (got ${gran4.place})`);
+const gran5 = extractLocation('ปลาหมอคางดำเกยตื้นชายฝั่งพัทยา', '', null, null);
+assert(gran5.place === 'ชายฝั่งพัทยา', `ชายฝั่งพัทยา → place ชายฝั่งพัทยา (got ${gran5.place})`);
+const gran6 = extractLocation('ปลาหมอคางดำโผล่ชายหาดพัทยา', '', null, null);
+assert(gran6.place === 'ชายหาดพัทยา', `ชายหาดพัทยา → place ชายหาดพัทยา (got ${gran6.place})`);
+const gran9 = extractLocation('ประมงชลบุรีลงพื้นที่ตรวจสอบ หลังพบปลาหมอคางดำโผล่ทะเลพัทยา', '', null, null);
+assert(gran9.place === 'ทะเลพัทยา', `earlier province mention must not erase the place (got ${gran9.place})`);
+assert(gran9.province === 'ชลบุรี', `earlier province mention still resolves province (got ${gran9.province})`);
+// guards — the genuine standalone-ณ surname must still be excluded
+const gran7 = extractLocation('นายวิชัย ณ พัทลุงแจ้งข่าวสถานการณ์ประมง', '', null, null);
+assert(gran7.province === null, `standalone surname ณ พัทลุง still excluded (got ${gran7.province})`);
+const gran8 = extractLocation('นายวิชัย ณ พัทลุงแจ้งพบปลาหมอคางดำที่ชลบุรี', '', null, null);
+assert(gran8.province === 'ชลบุรี', `surname + event location still resolves to ชลบุรี (got ${gran8.province})`);
+
 // --- minhash ----------------------------------------------------------------
 console.log('minhash');
 const m1 = new Minhash({ numPerm: 128, seed: 42 });

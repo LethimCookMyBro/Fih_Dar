@@ -36,6 +36,125 @@ const ENGLISH_ALIASES = [
   { text: 'sriracha', district: 'ศรีราชา', province: 'ชลบุรี' }
 ];
 
+// Local EEC locality aliases — province-level mappings for places the EEC
+// corpus actually uses that are NOT amphoe rows in the admin database (Pattaya
+// is a special administrative city inside Chonburi). Deliberately minimal;
+// โรงโป๊ะ / บางแสน remain unmapped rather than guessed.
+const LOCAL_ALIASES = [
+  { text: 'พัทยา', province: 'ชลบุรี' }
+];
+
+// Site qualifiers that can prefix a local alias. The FULL phrase is preserved
+// as the most-specific place (หาดพัทยา > พัทยา) — the site is never collapsed
+// to the bare alias, and it is never misclassified as a waterbody. Ordered
+// longest-first so ชายหาด wins over หาด.
+const SITE_QUALIFIERS = ['ชายหาด', 'ชายฝั่ง', 'เมือง', 'หาด', 'ทะเล'];
+
+/** Most-specific place phrase ending at `index`, or the bare alias text. */
+function placePhrase(text, index, aliasText) {
+  // Window 8 covers the longest qualifier ชายฝั่ง (7 code points).
+  const before = text.slice(Math.max(0, index - 8), index);
+  const qualifier = SITE_QUALIFIERS.find((q) => before.endsWith(q));
+  return qualifier ? qualifier + aliasText : aliasText;
+}
+
+// Candidate-ranking cues for province selection. Deliberately small and
+// deterministic — not an NLP engine. A mention is *boosted* when an event cue
+// directly precedes it; it is *demoted* (never deleted) for
+// origin/surname/publisher/history context. Demotion only matters when more
+// than one candidate exists, so a lone historical mention still resolves.
+// Surnames (ณ …) are excluded entirely — a surname is never an event location.
+const EVENT_CUES = [
+  'ล่าสุดที่',
+  'เหตุการณ์ใหม่เกิดที่',
+  'ตรวจเหตุที่',
+  'เกิดที่',
+  'พบที่',
+  'ที่หาด',
+  'ที่ชายฝั่ง',
+  'ชายหาด',
+  'ชายฝั่ง'
+];
+const PUBLISHER_CUES = ['ผู้สื่อข่าว', 'สำนักข่าว'];
+const HISTORY_AFTER_CUES = ['ประวัติศาสตร์', 'ในอดีต', 'เมื่อปีที่แล้ว'];
+// Windows are sized for the longest cue ('เหตุการณ์ใหม่เกิดที่' ≈ 19 code
+// points, 'ผู้สื่อข่าว' = 9, 'ประวัติศาสตร์' can start ~17 chars after a
+// mention). endsWith / includes still pin each cue to the mention.
+const EVENT_CUE_WINDOW = 24;
+const PUBLISHER_CUE_WINDOW = 12;
+const HISTORY_BEFORE_WINDOW = 12;
+const HISTORY_AFTER_WINDOW = 20;
+
+function hasEventCue(text, index) {
+  const window = text.slice(Math.max(0, index - EVENT_CUE_WINDOW), index);
+  return EVENT_CUES.some((cue) => window.endsWith(cue));
+}
+
+function isOriginMention(text, index) {
+  return text.slice(Math.max(0, index - 2), index) === 'จาก';
+}
+
+function isSurnameMention(text, index) {
+  // The surname particle ณ must be a standalone token (' ณ <name>' or
+  // 'ณ<name>' at a word boundary). A ณ glued to the preceding word —
+  // 'บริเวณพัทยา' — is just that word's final character, NOT a surname, and
+  // must never suppress the mention.
+  const prev = text[index - 1];
+  if (prev === ' ') {
+    return text[index - 2] === 'ณ' && (index - 2 === 0 || text[index - 3] === ' ');
+  }
+  if (prev === 'ณ') {
+    return index - 1 === 0 || text[index - 2] === ' ';
+  }
+  return false;
+}
+
+function isPublisherMention(text, index) {
+  const window = text.slice(Math.max(0, index - PUBLISHER_CUE_WINDOW), index);
+  return PUBLISHER_CUES.some((cue) => window.includes(cue));
+}
+
+function isHistoryMention(text, index) {
+  const before = text.slice(Math.max(0, index - HISTORY_BEFORE_WINDOW), index);
+  const after = text.slice(index, index + HISTORY_AFTER_WINDOW);
+  return before.includes('เคย') || HISTORY_AFTER_CUES.some((cue) => after.includes(cue));
+}
+
+// A locality (local alias) is always more specific than a province-level
+// mention, so in a tiebreak it wins regardless of position — otherwise
+// 'ประมงชลบุรี …โผล่ทะเลพัทยา' would lose the place to the earlier ชลบุรี.
+const KIND_RANK = { local: 0, prefix: 1, province: 1 };
+
+function bySpecificity(a, b) {
+  return (KIND_RANK[a.kind] - KIND_RANK[b.kind]) || (a.index - b.index);
+}
+
+/**
+ * Pick the event province among position-tagged candidates.
+ * 1. Event-cued, non-history mention wins (most recent / explicitly located;
+ *    a 'เคยพบที่…' historical mention must never win via its 'พบที่' cue).
+ * 2. Otherwise the most specific non-demoted mention (locality before
+ *    province-level, then earliest).
+ * 3. Otherwise the most specific non-surname mention (origin/publisher/
+ *    history demotions only break ties — they must not erase the only
+ *    location in the text).
+ * 4. Only-surnames → null (never extract a surname as a location).
+ */
+function selectProvinceCandidate(candidates, text) {
+  const boosted = candidates.filter((c) => hasEventCue(text, c.index) && !isHistoryMention(text, c.index));
+  if (boosted.length > 0) return boosted.sort((a, b) => a.index - b.index)[0];
+  const retained = candidates.filter(
+    (c) => !isOriginMention(text, c.index) &&
+      !isPublisherMention(text, c.index) &&
+      !isHistoryMention(text, c.index) &&
+      !isSurnameMention(text, c.index)
+  );
+  if (retained.length > 0) return retained.sort(bySpecificity)[0];
+  const nonSurname = candidates.filter((c) => !isSurnameMention(text, c.index));
+  if (nonSurname.length > 0) return nonSurname.sort(bySpecificity)[0];
+  return null;
+}
+
 /**
  * Decode the compacted jquery.Thailand.js database into
  * Map<provinceName, Set<amphoeName>>.
@@ -133,9 +252,11 @@ function bestMatch(candidates, token, threshold) {
 
 /**
  * Extract a normalized location from observation text.
- * Returns { province, district, subdistrict, waterbody, precision, evidence }
- * — all fields nullable; precision is the most specific level actually
- * supported by the text.
+ * Returns { province, district, subdistrict, waterbody, place, precision,
+ * evidence } — all fields nullable; precision is the most specific level
+ * actually supported by the text. `place` is the most-specific non-admin
+ * locality/site phrase (e.g. หาดพัทยา) when a local alias matched — it is
+ * preserved alongside the parent province, never collapsed into it.
  */
 export function extractLocation(title, description, sourceLatitude, sourceLongitude) {
   const text = normalizeText(`${title ?? ''} ${description ?? ''}`);
@@ -144,6 +265,7 @@ export function extractLocation(title, description, sourceLatitude, sourceLongit
   let district = null;
   let subdistrict = null;
   let waterbody = null;
+  let place = null;
 
   // 1. English aliases (latin text normalizes to lowercase).
   for (const alias of ENGLISH_ALIASES) {
@@ -155,41 +277,89 @@ export function extractLocation(title, description, sourceLatitude, sourceLongit
     }
   }
 
-  // 2. Exact province names (longest first). Boundary check applies only to
-  // short names (e.g. 'เลย') that can hide inside unrelated words; longer
-  // names like 'ระยอง' inside 'ประมงระยอง' are legitimately matched.
+  // 2. Thai province candidates — collect EVERY mention (exact names,
+  // จ./จังหวัด prefix captures, local aliases) with its text position, then
+  // rank by context cues. Selection never depends on name length or
+  // admin-database order. Exact names are boundary-guarded for short names
+  // and skipped when the mention sits inside a waterbody phrase
+  // (แม่น้ำระยอง is the river, not a province mention).
   if (!province) {
+    const candidates = [];
     for (const name of PROVINCE_NAMES) {
-      const index = text.indexOf(name);
-      if (index >= 0 && (!needsBoundary(name) || isBoundaryBefore(text, index))) {
-        province = name;
-        evidence.matched.push(`province:${name}`);
+      let from = 0;
+      while (true) {
+        const index = text.indexOf(name, from);
+        if (index < 0) break;
+        const boundaryOk = !needsBoundary(name) || isBoundaryBefore(text, index);
+        const prefixedByWater = WATERBODY_PREFIXES.some((prefix) =>
+          text.slice(Math.max(0, index - prefix.length - 2), index).endsWith(prefix)
+        );
+        if (boundaryOk && !prefixedByWater) {
+          candidates.push({ name, index, kind: 'province' });
+        }
+        from = index + 1;
+      }
+    }
+    // จ./จังหวัด prefix captures with fuzzy normalization — all occurrences.
+    const provincePrefix = /(?:จังหวัด|จ\.)\s*([\u0e00-\u0e7f]+)/g;
+    let capture;
+    while ((capture = provincePrefix.exec(text)) !== null) {
+      const found = bestMatch(PROVINCE_NAMES, capture[1], EXPERIMENTAL_LOCATION_FUZZY_PROVINCE);
+      if (found) {
+        candidates.push({ name: found.candidate, index: capture.index, kind: 'prefix', raw: capture[1], score: found.score });
+      }
+    }
+    // Local EEC locality aliases (พัทยา → ชลบุรี). The full site phrase
+    // (หาดพัทยา, ชายหาดพัทยา …) is carried on the candidate and preserved
+    // as the most-specific place.
+    for (const alias of LOCAL_ALIASES) {
+      let from = 0;
+      while (true) {
+        const index = text.indexOf(alias.text, from);
+        if (index < 0) break;
+        candidates.push({
+          name: alias.province,
+          index,
+          kind: 'local',
+          raw: alias.text,
+          place: placePhrase(text, index, alias.text)
+        });
+        from = index + 1;
+      }
+    }
+    if (candidates.length > 0) {
+      const selected = selectProvinceCandidate(candidates, text);
+      if (selected) {
+        province = selected.name;
+        if (selected.kind === 'prefix') evidence.fuzzy.push(`province:${selected.raw}→${selected.name}(${selected.score})`);
+        else if (selected.kind === 'local') {
+          place = selected.place;
+          evidence.matched.push(`alias:${selected.place}→${selected.name}`);
+        } else evidence.matched.push(`province:${selected.name}@${selected.index}`);
+      }
+    }
+  }
+
+  // 4. Waterbodies — a known EEC name counts as a waterbody only when a
+  // waterbody prefix (แม่น้ำ/คลอง/หนอง/บ่อ/…) appears right before it, or
+  // the name itself begins with a waterbody type word ('หนองค้อ' inside
+  // 'บ่อปลาหนองค้อ'). A bare 'ระยอง' is province usage, never the river.
+  // The prefix path below still captures explicit แม่น้ำ/คลอง/… phrases.
+  for (const waterbodyName of EEC_WATERBODIES) {
+    const nameIsPrefixed = WATERBODY_PREFIXES.some((prefix) => waterbodyName.startsWith(prefix));
+    let from = 0;
+    while (true) {
+      const index = text.indexOf(waterbodyName, from);
+      if (index < 0) break;
+      const window = text.slice(Math.max(0, index - 8), index);
+      if (nameIsPrefixed || WATERBODY_PREFIXES.some((prefix) => window.includes(prefix))) {
+        waterbody = waterbodyName;
+        evidence.matched.push(`waterbody:${waterbodyName}`);
         break;
       }
+      from = index + 1;
     }
-  }
-
-  // 3. จ./จังหวัด prefix capture with fuzzy normalization.
-  if (!province) {
-    const match = PREFIX_PATTERNS[0].exec(text);
-    if (match) {
-      const found = bestMatch(PROVINCE_NAMES, match[1], EXPERIMENTAL_LOCATION_FUZZY_PROVINCE);
-      if (found) {
-        province = found.candidate;
-        evidence.fuzzy.push(`province:${match[1]}→${found.candidate}(${found.score})`);
-      }
-    }
-  }
-
-  // 4. Waterbodies — detected first so a prefixed mention like
-  // "ลุ่มน้ำบางปะกง" is treated as a basin reference, not the district.
-  for (const waterbodyName of EEC_WATERBODIES) {
-    const index = text.indexOf(waterbodyName);
-    if (index >= 0 && isBoundaryBefore(text, index)) {
-      waterbody = waterbodyName;
-      evidence.matched.push(`waterbody:${waterbodyName}`);
-      break;
-    }
+    if (waterbody) break;
   }
   if (!waterbody) {
     const match = PREFIX_PATTERNS[3].exec(text);
@@ -259,7 +429,7 @@ export function extractLocation(title, description, sourceLatitude, sourceLongit
     precision = 'PROVINCE';
   }
 
-  return { province, district, subdistrict, waterbody, precision, evidence };
+  return { province, district, subdistrict, waterbody, place, precision, evidence };
 }
 
 export function listProvinces() {
