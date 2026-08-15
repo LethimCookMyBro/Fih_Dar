@@ -41,6 +41,39 @@ assert(verdictFromEvidence(generic).verdict === 'IRRELEVANT', 'generic tilapia �
 const unrelated = classifyText('พยากรณ์อากาศวันนี้ฝนตก', '');
 assert(verdictFromEvidence(unrelated).verdict === 'IRRELEVANT', 'unrelated → IRRELEVANT');
 
+// --- species gate regression (post species-gate-validation fixes) ---
+// Safety invariant: bare คางดำ alone must NEVER be EXPLICIT_BLACKCHIN.
+const mackerel = classifyText('ถกสนั่น แกะปลากระป๋อง เจอแมคเคอเรลคางดำ', '');
+assert(mackerel.speciesEvidence !== 'EXPLICIT_BLACKCHIN', 'canned mackerel คางดำ NOT explicit');
+assert(mackerel.speciesEvidence === 'OTHER_SPECIES', 'canned mackerel → OTHER_SPECIES');
+assert(verdictFromEvidence(mackerel).verdict === 'IRRELEVANT', 'other-species evidence → IRRELEVANT');
+const brand = classifyText("ร้านอาหาร 'คางดำ' เปิดสาขาใหม่ที่ชลบุรี", '');
+assert(brand.speciesEvidence !== 'EXPLICIT_BLACKCHIN', 'brand-name คางดำ NOT explicit');
+assert(brand.speciesEvidence === 'NONE', 'brand-name คางดำ → NONE');
+const negation = classifyText('หน่วยงานยืนยันว่าไม่ใช่ปลาหมอคางดำ', '');
+assert(negation.speciesEvidence !== 'EXPLICIT_BLACKCHIN', 'negated mention NOT explicit');
+assert(negation.speciesEvidence === 'NONE', 'negated mention → NONE');
+const comparison = classifyText('ปลาตัวนี้คล้ายปลาหมอคางดำแต่เป็นปลานิล', '');
+assert(comparison.speciesEvidence === 'AMBIGUOUS_TILAPIA', 'comparison resolving to tilapia → AMBIGUOUS');
+const enGeneric = classifyText('tilapia farming grows in the east', '');
+assert(enGeneric.speciesEvidence === 'AMBIGUOUS_TILAPIA', 'bare english tilapia → AMBIGUOUS');
+const noSpace = classifyText('BlackchinTilapia spotted in canal', '');
+assert(noSpace.speciesEvidence === 'EXPLICIT_BLACKCHIN', 'no-space blackchin tilapia → EXPLICIT');
+const typo = classifyText('ปลาหมอค้างดำระบาด', '');
+assert(typo.speciesEvidence === 'EXPLICIT_BLACKCHIN', 'misspelled ค้างดำ → EXPLICIT');
+const spaced = classifyText('ปลาหมอ คางดำ ระบาด', '');
+assert(spaced.speciesEvidence === 'EXPLICIT_BLACKCHIN', 'spaced ปลาหมอ คางดำ → EXPLICIT');
+const informal = classifyText('หมอคางดำโผล่ชายหาดพัทยา', '');
+assert(informal.speciesEvidence === 'EXPLICIT_BLACKCHIN', 'informal หมอคางดำ → EXPLICIT');
+const perch = classifyText('ชาวประมงจับปลากะพงได้ตัวใหญ่', '');
+assert(perch.speciesEvidence === 'OTHER_SPECIES', 'ปลากะพง → OTHER_SPECIES');
+const mozambique = classifyText('ชาวบ้านจับปลาหมอเทศได้จากบ่อ', '');
+assert(mozambique.speciesEvidence === 'OTHER_SPECIES', 'ปลาหมอเทศ → OTHER_SPECIES');
+// no regression in clear genuine cases
+assert(classifyText('ปลาหมอคางดำระบาดในคลอง', '').speciesEvidence === 'EXPLICIT_BLACKCHIN', 'clear blackchin → EXPLICIT (regression)');
+assert(classifyText('ปริมาณการจับปลานิลในปีนี้เพิ่มขึ้น', '').speciesEvidence === 'AMBIGUOUS_TILAPIA', 'generic ปลานิล → AMBIGUOUS (regression)');
+assert(classifyText('น้ำท่วมฉะเชิงเทราหนักสุดในรอบสิบปี', '').speciesEvidence === 'NONE', 'no species → NONE (regression)');
+
 // --- locations --------------------------------------------------------------
 console.log('locations');
 const loc = extractLocation('ปลาหมอคางดำระบาด อ.บางปะกง จ.ฉะเชิงเทรา', '', null, null);

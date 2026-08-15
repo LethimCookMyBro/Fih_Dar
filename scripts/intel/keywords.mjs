@@ -7,16 +7,51 @@
 
 import { normalizeText } from './normalize.mjs';
 
-/** Terms that identify the target species (Blackchin tilapia, S. melanotheron). */
+/**
+ * Terms that identify the target species (Blackchin tilapia, S. melanotheron).
+ *
+ * Deliberately NO bare 'คางดำ': alone it is not sufficient evidence — it
+ * matches canned mackerel ('แมคเคอเรลคางดำ'), brand/product names, and other
+ * non-fish uses. Strong evidence requires a species context (ปลาหมอ/หมอ
+ * prefix, full English name, or scientific name). Misspelling variants
+ * (ค้างดำ) are listed explicitly — deterministic, zero fuzzy matching.
+ */
 export const SPECIES_TERMS = [
   'ปลาหมอคางดำ',
+  'ปลาหมอค้างดำ', // misspelling variant (คาง → ค้าง)
+  'หมอคางดำ',
+  'หมอค้างดำ', // misspelling variant
   'blackchin tilapia',
-  'sarotherodon melanotheron',
-  'คางดำ'
+  'sarotherodon melanotheron'
 ];
 
 /** Generic tilapia (a different species — Nile tilapia farming, catch stats). */
-export const GENERIC_TILAPIA_TERMS = ['ปลานิล', 'nile tilapia'];
+export const GENERIC_TILAPIA_TERMS = ['ปลานิล', 'nile tilapia', 'tilapia'];
+
+/**
+ * Smallest explicit vocabulary for OTHER_SPECIES (identifiable non-blackchin
+ * fish). Kept to what the controlled validation tests need — deliberately not
+ * a fish taxonomy. OTHER_SPECIES is declared in the SPEC as an intended real
+ * output ('reserved; not detected yet').
+ */
+export const OTHER_SPECIES_TERMS = [
+  'ปลากะพง', // sea bass
+  'ปลาทับทิม', // red tilapia breed
+  'ปลาช่อน', // snakehead
+  'ปลาหมอเทศ', // Mozambique tilapia
+  'แมคเคอเรล' // mackerel (canned-fish scandal headlines)
+];
+
+/**
+ * Negation triggers: only the smallest set needed to keep quoted denials from
+ * becoming affirmative evidence. Checked against the characters immediately
+ * preceding a species-term occurrence.
+ */
+export const NEGATION_TRIGGERS = ['ไม่ใช่', 'มิใช่', 'ไม่พบ', 'ไม่เจอ', 'ไม่เห็น'];
+
+/** Comparison/correction marker: species term + generic tilapia + this ⇒ the
+ * sentence resolves the specimen to the generic fish, not blackchin. */
+export const COMPARISON_MARKER = 'แต่เป็น';
 
 /**
  * Species hard gate. ONLY EXPLICIT_BLACKCHIN may enter the Blackchin Tilapia
@@ -32,8 +67,12 @@ export const SPECIES_EVIDENCE = {
 };
 
 export function speciesEvidenceFor(classification) {
-  if (classification.speciesHit.length > 0) return SPECIES_EVIDENCE.EXPLICIT_BLACKCHIN;
-  if (classification.genericHit.length > 0) return SPECIES_EVIDENCE.AMBIGUOUS_TILAPIA;
+  const { speciesHit, genericHit, otherHit, resolvedToGeneric } = classification;
+  // Comparison/correction ('คล้ายปลาหมอคางดำแต่เป็นปลานิล') resolves the
+  // specimen to the generic fish — the species term is not affirmative here.
+  if (speciesHit.length > 0 && !resolvedToGeneric) return SPECIES_EVIDENCE.EXPLICIT_BLACKCHIN;
+  if (genericHit.length > 0) return SPECIES_EVIDENCE.AMBIGUOUS_TILAPIA;
+  if (otherHit.length > 0) return SPECIES_EVIDENCE.OTHER_SPECIES;
   return SPECIES_EVIDENCE.NONE;
 }
 
@@ -71,6 +110,43 @@ export const CATEGORY_PATTERNS = {
 const KIND_ORDER = ['SIGHTING', 'CONTROL_REMOVAL', 'POLICY', 'AQUACULTURE'];
 
 /**
+ * Whitespace-insensitive occurrence scan of `term` inside `text` (original
+ * normalized text, indexes preserved so negation windows work). Tolerates
+ * 'BlackchinTilapia' (zero space), 'ปลาหมอ คางดำ' (inserted space), etc.
+ * Deterministic — `\s*` between characters, no fuzzy matching.
+ */
+function termOccurrences(text, term) {
+  const parts = [];
+  for (const ch of term) {
+    if (ch === ' ') {
+      parts.push('\\s*');
+      continue;
+    }
+    parts.push(ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), '\\s*');
+  }
+  if (parts[parts.length - 1] === '\\s*') parts.pop(); // no trailing whitespace
+  const re = new RegExp(parts.join(''), 'g');
+  const out = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    out.push(m.index);
+    re.lastIndex = m.index + 1; // allow overlaps (หมอคางดำ inside ปลาหมอคางดำ)
+  }
+  return out;
+}
+
+/**
+ * True when the chars immediately before the occurrence end with a negation
+ * trigger. `anchor` is the EARLIEST overlapping species-term start, so a term
+ * nested inside another ('หมอคางดำ' inside 'ไม่ใช่ปลาหมอคางดำ') inherits the
+ * outer occurrence's negation window.
+ */
+function isNegated(text, anchor) {
+  const before = text.slice(Math.max(0, anchor - 8), anchor).trimEnd();
+  return NEGATION_TRIGGERS.some((trigger) => before.endsWith(trigger));
+}
+
+/**
  * Classify one observation text into a primary kind with per-kind hit counts.
  * Returns { kind, kindScores, speciesHit, speciesTerms, evidence }
  * — evidence lists the actual matched patterns per category.
@@ -78,8 +154,36 @@ const KIND_ORDER = ['SIGHTING', 'CONTROL_REMOVAL', 'POLICY', 'AQUACULTURE'];
 export function classifyText(title, description) {
   const text = normalizeText(`${title ?? ''} ${description ?? ''}`);
 
-  const speciesHit = SPECIES_TERMS.filter((term) => text.includes(term.toLowerCase()));
+  // Strong species terms: only affirmative (non-negated) occurrences count.
+  // All occurrences across all strong terms share one negation map — a nested
+  // occurrence anchors to the earliest overlapping term start.
+  const occurrences = [];
+  for (const term of SPECIES_TERMS) {
+    for (const index of termOccurrences(text, term.toLowerCase())) {
+      occurrences.push({ term, index, length: term.length });
+    }
+  }
+  const negatedIndexes = new Set();
+  for (const occ of occurrences) {
+    const anchor = Math.min(
+      ...occurrences
+        .filter((o) => o.index <= occ.index && o.index + o.length > occ.index)
+        .map((o) => o.index)
+    );
+    if (isNegated(text, anchor)) negatedIndexes.add(occ.index);
+  }
+  const speciesHit = [
+    ...new Set(
+      occurrences.filter((occ) => !negatedIndexes.has(occ.index)).map((occ) => occ.term)
+    )
+  ];
   const genericHit = GENERIC_TILAPIA_TERMS.filter((term) => text.includes(term.toLowerCase()));
+  const otherHit = OTHER_SPECIES_TERMS.filter((term) => text.includes(term.toLowerCase()));
+
+  // Comparison/correction: species + generic tilapia + 'แต่เป็น' ⇒ the text
+  // explicitly resolves the specimen to the generic fish (minimal rule).
+  const resolvedToGeneric =
+    speciesHit.length > 0 && genericHit.length > 0 && text.includes(COMPARISON_MARKER);
 
   const hits = {};
   for (const [kind, patterns] of Object.entries(CATEGORY_PATTERNS)) {
@@ -98,18 +202,21 @@ export function classifyText(title, description) {
     .sort((a, b) => kindScores[b] - kindScores[a]);
   const kind = ranked[0] ?? 'UNRELATED';
 
-  const speciesEvidence = speciesEvidenceFor({ speciesHit, genericHit });
+  const speciesEvidence = speciesEvidenceFor({ speciesHit, genericHit, otherHit, resolvedToGeneric });
 
   return {
     kind,
     kindScores,
     speciesHit,
     genericHit,
+    otherHit,
+    resolvedToGeneric,
     speciesEvidence,
     evidence: {
       speciesEvidence,
       speciesTerms: speciesHit,
       genericTilapiaTerms: genericHit,
+      otherSpeciesTerms: otherHit,
       categoryHits: hits
     }
   };
@@ -131,6 +238,9 @@ export function verdictFromEvidence(classification) {
   }
   if (speciesEvidence === SPECIES_EVIDENCE.AMBIGUOUS_TILAPIA) {
     return { verdict: 'IRRELEVANT', reason: 'generic tilapia (different species), no blackchin mention' };
+  }
+  if (speciesEvidence === SPECIES_EVIDENCE.OTHER_SPECIES) {
+    return { verdict: 'IRRELEVANT', reason: 'identifiable non-blackchin species, no blackchin mention' };
   }
   if (kind === 'SIGHTING' || kind === 'CONTROL_REMOVAL') {
     return { verdict: 'RELEVANT', reason: `${kind} language present (${kindScores[kind]} hit(s))` };
