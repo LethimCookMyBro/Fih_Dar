@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile.cron"
+  },
+  "deploy": {
+    "startCommand": "npm run db:refresh:prod",
+    "preDeployCommand": ["npm run db:migrate"],
+    "cronSchedule": "0 */6 * * *",
+    "restartPolicyType": "NEVER",
+    "healthcheckPath": null
+  }
+}
