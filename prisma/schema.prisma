@@ -17,6 +17,20 @@ enum ReportStatus {
   REJECTED
 }
 
+/// Lifecycle of one ingestion pipeline execution (sources → intelligence).
+enum IngestionRunStatus {
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+}
+
+/// What started an ingestion run — a developer command or the Railway cron.
+enum IngestionTrigger {
+  MANUAL
+  SCHEDULED
+}
+
 enum RiskLevel {
   LOW
   MEDIUM
@@ -193,4 +207,32 @@ model EventCandidateObservation {
 
   @@id([candidateId, observationId])
   @@index([observationId])
+}
+
+/// One execution of the refresh pipeline: source ingestion → intelligence
+/// processing. Created RUNNING by scripts/refresh-intelligence.mjs and
+/// finalized with a deterministic status; the JSON columns hold sanitized
+/// operational summaries (never secrets or stack traces intended for clients).
+model IngestionRun {
+  id             String             @id @default(uuid()) @db.Uuid
+  trigger        IngestionTrigger   @default(MANUAL)
+  status         IngestionRunStatus @default(RUNNING)
+
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+
+  createdCount   Int @default(0)
+  skippedCount   Int @default(0)
+  processedCount Int @default(0)
+  failedCount    Int @default(0)
+
+  sourceResults   Json?
+  pipelineSummary Json?
+  errorSummary    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startedAt])
+  @@index([status])
 }
