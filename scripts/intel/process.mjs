@@ -13,10 +13,16 @@
 // batch; embedding failures degrade to keyword-only relevance; the raw source
 // text is never modified. Run this offline — nothing here runs in the Next.js
 // request path.
+//
+// The pipeline logic lives in `runIntelligence()` so the refresh runner
+// (scripts/refresh-intelligence.mjs) can call it and persist its summary.
+// No algorithm, threshold, or model was changed in this refactor — only the
+// entry point was extracted.
 
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { PrismaClient } from '@prisma/client';
 
@@ -28,10 +34,17 @@ import { resolveEvents } from './events.mjs';
 import { embedTexts, cosineSimilarity } from './embed.mjs';
 
 const require = createRequire(import.meta.url);
-const prisma = new PrismaClient();
-const reprocessAll = process.argv.includes('--all');
 
-async function main() {
+/**
+ * Run the intelligence batch over observations and return a structured
+ * summary for orchestrators:
+ *
+ *   { rowsConsidered, processed, failed, verdicts, nearDuplicatesLinked, eventCandidates }
+ *
+ * Reprocessing selects RAW + FAILED rows (retryable); `reprocessAll`
+ * selects everything. Algorithms and thresholds are untouched.
+ */
+export async function runIntelligence({ prisma, reprocessAll = false, logger = console } = {}) {
   const t0 = Date.now();
   // RAW + FAILED are retryable; PROCESSED rows are skipped unless --all.
   const where = reprocessAll ? {} : { processingStatus: { in: ['RAW', 'FAILED'] } };
@@ -39,18 +52,20 @@ async function main() {
     where,
     orderBy: { scrapedAt: 'asc' }
   });
-  console.log(`intel: ${observations.length} observation(s) to process (${reprocessAll ? 'all' : 'raw only'})`);
+  logger.log(`intel: ${observations.length} observation(s) to process (${reprocessAll ? 'all' : 'raw only'})`);
 
   // ---- batch embedding (optional; failure degrades gracefully) --------------
   const texts = observations.map((o) => `${o.title} ${o.description ?? ''}`.trim());
   let vectors = null;
   let prototypeVectors = null;
+  let embeddingAvailable = false;
   if (texts.length > 0) {
     const embedded = await embedTexts(texts);
     if (!embedded.vectors) {
-      console.log(`intel: ${embedded.reason} — continuing with keyword-only relevance`);
+      logger.log(`intel: ${embedded.reason} — continuing with keyword-only relevance`);
     } else {
       vectors = embedded.vectors;
+      embeddingAvailable = true;
       const prototypes = await embedTexts(Object.values(PROTOTYPES), { kind: 'query' });
       prototypeVectors = prototypes.vectors;
     }
@@ -84,7 +99,7 @@ async function main() {
       results.push({ observation, scored, location, evidenceForDb });
     } catch (error) {
       failed += 1;
-      console.error(`intel: row ${observation.id} failed: ${error.message ?? error}`);
+      logger.error(`intel: row ${observation.id} failed: ${error.message ?? error}`);
       await prisma.externalObservation.update({
         where: { id: observation.id },
         data: { processingStatus: 'FAILED', processingError: String(error?.message ?? error), processedAt: new Date() }
@@ -172,27 +187,37 @@ async function main() {
   }
 
   // ---- summary + score distributions ----------------------------------------
-  const counts = { RELEVANT: 0, IRRELEVANT: 0, UNCERTAIN: 0, FAILED: failed };
+  const verdictCounts = { RELEVANT: 0, IRRELEVANT: 0, UNCERTAIN: 0 };
   const precisionCounts = {};
   const kindCounts = {};
   const semanticScores = [];
   for (const { scored, observation, location } of results) {
-    counts[scored.verdict] += 1;
+    verdictCounts[scored.verdict] += 1;
     precisionCounts[location.precision] = (precisionCounts[location.precision] ?? 0) + 1;
     kindCounts[scored.classification.kind] = (kindCounts[scored.classification.kind] ?? 0) + 1;
     if (scored.evidence.semantic?.available) {
       semanticScores.push({ id: observation.id, title: observation.title, ...scored.evidence.semantic });
     }
   }
-  writeDistributions({ counts, precisionCounts, kindCounts, semanticScores });
+  writeDistributions({ counts: { ...verdictCounts, FAILED: failed }, precisionCounts, kindCounts, semanticScores });
 
-  console.log(`intel: done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  console.log(`  verdicts: ${JSON.stringify(counts)}`);
-  console.log(`  precision: ${JSON.stringify(precisionCounts)}`);
-  console.log(`  kinds: ${JSON.stringify(kindCounts)}`);
-  console.log(`  near-duplicates linked: ${linked}`);
-  console.log(`  event candidates: ${eventsPersisted}`);
-  console.log('  distributions written to .data/intel/distributions.json');
+  logger.log(`intel: done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+  logger.log(`  verdicts: ${JSON.stringify({ ...verdictCounts, FAILED: failed })}`);
+  logger.log(`  precision: ${JSON.stringify(precisionCounts)}`);
+  logger.log(`  kinds: ${JSON.stringify(kindCounts)}`);
+  logger.log(`  near-duplicates linked: ${linked}`);
+  logger.log(`  event candidates: ${eventsPersisted}`);
+  logger.log('  distributions written to .data/intel/distributions.json');
+
+  return {
+    rowsConsidered: observations.length,
+    processed: results.length,
+    failed,
+    verdicts: verdictCounts,
+    nearDuplicatesLinked: linked,
+    eventCandidates: eventsPersisted,
+    embeddingAvailable
+  };
 }
 
 function computeSemanticScores(vector, prototypeVectors) {
@@ -210,11 +235,21 @@ function writeDistributions(data) {
   writeFileSync(join(process.cwd(), '.data', 'intel', 'distributions.json'), JSON.stringify(data, null, 2));
 }
 
-main()
-  .catch((error) => {
+async function main() {
+  const prisma = new PrismaClient();
+  const reprocessAll = process.argv.includes('--all');
+  try {
+    await runIntelligence({ prisma, reprocessAll });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// CLI entry point — only when run directly, never when imported by the
+// refresh runner.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
     console.error('intel worker failed:', error);
     process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });
+}
