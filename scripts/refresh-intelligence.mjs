@@ -46,6 +46,7 @@ function sanitizeSourceResults(sources) {
 
 async function main() {
   const trigger = triggerFromEnv();
+  const reprocessAll = process.argv.includes('--all') || process.env.REPROCESS_ALL === 'true';
 
   const run = await prisma.ingestionRun.create({
     data: { trigger, status: 'RUNNING' }
@@ -67,8 +68,8 @@ async function main() {
       `[refresh] ingestion ${ingestion.status}: created=${ingestion.totalCreated} skipped=${ingestion.totalSkipped} failedSources=${ingestion.failedSources}`
     );
 
-    // 2) intelligence — only RAW/FAILED rows (runIntelligence's default)
-    pipelineSummary = await runIntelligence({ prisma, reprocessAll: false });
+    // 2) intelligence — RAW/FAILED by default, or all rows if --all or REPROCESS_ALL=true
+    pipelineSummary = await runIntelligence({ prisma, reprocessAll });
     console.log(
       `[refresh] intelligence: processed=${pipelineSummary.processed} failed=${pipelineSummary.failed} events=${pipelineSummary.eventCandidates}`
     );
