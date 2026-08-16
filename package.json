@@ -22,6 +22,8 @@
     "db:ingest": "node --env-file=.env scripts/ingest.mjs",
     "ingest:test": "node scripts/ingestion/self-test.mjs",
     "db:intel": "node --env-file=.env scripts/intel/process.mjs",
+    "db:refresh": "node --env-file=.env scripts/refresh-intelligence.mjs",
+    "db:refresh:prod": "node scripts/refresh-intelligence.mjs",
     "intel:test": "node scripts/intel/self-test.mjs",
     "intel:benchmark": "node --env-file=.env scripts/intel/benchmark.mjs",
     "intel:export-review": "node --env-file=.env scripts/intel/export-review.mjs",
