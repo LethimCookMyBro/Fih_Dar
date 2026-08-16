@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 
-import PageContainer from '@/components/layout/page-container';
 import { SourcesView } from '@/features/sources/components/sources-view';
 
 export const metadata: Metadata = {
@@ -9,12 +8,11 @@ export const metadata: Metadata = {
 };
 
 export default function SourcesPage() {
+  // The hero owns the first viewport, so this page uses a wider content shell
+  // than the default PageContainer (same precedent as /map).
   return (
-    <PageContainer
-      pageTitle='แหล่งข้อมูล'
-      pageDescription='ข้อมูลสาธารณะที่ FihDar ใช้ประกอบการเฝ้าระวังและวิเคราะห์เชิงพื้นที่'
-    >
+    <div className='mx-auto flex w-full max-w-[1240px] flex-1 flex-col px-4 pt-5 pb-14 sm:px-6 lg:px-8'>
       <SourcesView />
-    </PageContainer>
+    </div>
   );
 }

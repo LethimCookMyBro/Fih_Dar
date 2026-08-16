@@ -99,7 +99,21 @@ import {
   IconVideo,
   IconCrown,
   IconDatabase,
-  IconX
+  IconX,
+  IconRss,
+  IconFilter,
+  IconCopy,
+  IconCirclesRelation,
+  IconRoute,
+  IconBuildingBank,
+  IconNews,
+  IconScan,
+  IconTimelineEvent,
+  IconArrowsUpDown,
+  IconGlobe,
+  IconMicroscope,
+  IconWorld,
+  IconFlag
 } from '@tabler/icons-react';
 
 export type Icon = React.ComponentType<IconProps>;
@@ -245,5 +259,21 @@ export const Icons = {
   target: IconTargetArrow,
   flask: IconFlask,
   database: IconDatabase,
-  menu: IconMenu2
+  menu: IconMenu2,
+
+  // Sources / intelligence pipeline
+  rss: IconRss,
+  filter: IconFilter,
+  copy: IconCopy,
+  circlesRelation: IconCirclesRelation,
+  route: IconRoute,
+  buildingBank: IconBuildingBank,
+  news: IconNews,
+  scan: IconScan,
+  timelineEvent: IconTimelineEvent,
+  arrowUpDown: IconArrowsUpDown,
+  globe: IconGlobe,
+  microscope: IconMicroscope,
+  world: IconWorld,
+  flag: IconFlag
 };
