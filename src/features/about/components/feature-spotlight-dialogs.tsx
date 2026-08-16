@@ -48,36 +48,34 @@ const FEATURES: Feature[] = [
 
 export function FeatureSpotlightDialogs() {
   return (
-    <section className='mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 md:py-20 lg:px-8'>
+    <section className='mx-auto w-full max-w-7xl px-4 py-20 sm:px-6 md:py-28 lg:px-8'>
       <p className='text-muted-foreground font-mono text-[0.75rem] tracking-[0.18em] uppercase'>
         สำรวจระบบ
       </p>
       <h2 className='mt-3 text-2xl font-semibold tracking-tight md:text-3xl'>สี่ส่วนหลักของ FihDar</h2>
 
-      <ul className='mt-8 grid gap-4 sm:grid-cols-2'>
+      <ul className='mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4'>
         {FEATURES.map((f) => (
           <li key={f.title}>
             <Dialog>
               <DialogTrigger
-                className='w-full text-start focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none'
+                className='block h-full w-full text-start focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none'
                 aria-haspopup='dialog'
               >
-                <SpotlightCard className='h-full'>
-                  <div className='flex items-start gap-4'>
-                    <span className='bg-accent text-accent-foreground flex size-11 shrink-0 items-center justify-center rounded-xl'>
-                      <f.icon className='size-(--nav-icon-lg)' aria-hidden />
-                    </span>
-                    <div className='min-w-0'>
-                      <div className='flex flex-wrap items-center gap-2'>
-                        <h3 className='text-[0.9375rem] font-semibold'>{f.subtitle}</h3>
-                        {f.experimental && (
-                          <span className='bg-brand/10 text-brand rounded-full px-1.5 py-0.5 text-[0.6875rem] font-medium'>
-                            ทดลอง (MVP)
-                          </span>
-                        )}
-                      </div>
-                      <p className='text-muted-foreground mt-1 text-[0.8125rem]'>{f.title}</p>
+                <SpotlightCard className='flex h-full min-h-[280px] flex-col justify-between gap-6'>
+                  <span className='bg-accent text-accent-foreground flex size-16 shrink-0 items-center justify-center rounded-2xl'>
+                    <f.icon className='size-8' aria-hidden />
+                  </span>
+                  <div className='min-w-0'>
+                    <div className='flex flex-wrap items-center gap-2'>
+                      <h3 className='text-lg font-semibold'>{f.subtitle}</h3>
+                      {f.experimental && (
+                        <span className='bg-brand/10 text-brand rounded-full px-1.5 py-0.5 text-[0.6875rem] font-medium'>
+                          ทดลอง (MVP)
+                        </span>
+                      )}
                     </div>
+                    <p className='text-muted-foreground mt-1.5 text-[0.9375rem]'>{f.title}</p>
                   </div>
                 </SpotlightCard>
               </DialogTrigger>

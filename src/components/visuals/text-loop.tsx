@@ -3,7 +3,7 @@
 // FihDar-original component (not React Bits): a looping label that flows along an SVG
 // path via <textPath>, animated by GSAP nudging startOffset. Decorative by default —
 // wrap usage in aria-hidden when the same text is already announced elsewhere.
-import { useId, useLayoutEffect, useRef } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import gsap from 'gsap';
 
@@ -25,40 +25,43 @@ export type TextLoopProps = {
   ribbon?: boolean;
   ribbonColor?: string;
   ribbonWidth?: number;
+  ribbonOpacity?: number;
   pauseOnHover?: boolean;
   className?: string;
   style?: React.CSSProperties;
 };
 
-const VIEW_W = 1000;
-const VIEW_H = 200;
+// Fallback viewBox before the first real measurement (see `dims` below) — never
+// what actually renders once mounted.
+const DEFAULT_VIEW_W = 1000;
+const DEFAULT_VIEW_H = 200;
 
-function buildPath(shape: TextLoopShape, curviness: number): string {
+function buildPath(shape: TextLoopShape, curviness: number, viewW: number, viewH: number): string {
   const c = Math.max(0, Math.min(100, curviness));
-  const midY = VIEW_H / 2;
-  const amp = (c / 100) * (VIEW_H / 2 - 10);
+  const midY = viewH / 2;
+  const amp = (c / 100) * (viewH / 2 - 10);
 
   switch (shape) {
     case 'line':
-      return `M 0 ${midY} L ${VIEW_W} ${midY}`;
+      return `M 0 ${midY} L ${viewW} ${midY}`;
     case 'wave':
-      return `M 0 ${midY} C ${VIEW_W * 0.25} ${midY - amp}, ${VIEW_W * 0.25} ${midY - amp}, ${VIEW_W * 0.5} ${midY} S ${VIEW_W * 0.75} ${midY + amp}, ${VIEW_W} ${midY}`;
+      return `M 0 ${midY} C ${viewW * 0.25} ${midY - amp}, ${viewW * 0.25} ${midY - amp}, ${viewW * 0.5} ${midY} S ${viewW * 0.75} ${midY + amp}, ${viewW} ${midY}`;
     case 'arch':
-      return `M 0 ${VIEW_H - 10} Q ${VIEW_W / 2} ${VIEW_H - 10 - amp * 2}, ${VIEW_W} ${VIEW_H - 10}`;
+      return `M 0 ${viewH - 10} Q ${viewW / 2} ${viewH - 10 - amp * 2}, ${viewW} ${viewH - 10}`;
     case 'circle': {
-      const r = VIEW_H / 2 - 10;
-      const cx = VIEW_W / 2;
+      const r = viewH / 2 - 10;
+      const cx = viewW / 2;
       const cy = midY;
       return `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy} A ${r} ${r} 0 1 1 ${cx - r} ${cy} Z`;
     }
     case 'infinity': {
       const r = amp || 40;
-      const cx1 = VIEW_W * 0.3;
-      const cx2 = VIEW_W * 0.7;
+      const cx1 = viewW * 0.3;
+      const cx2 = viewW * 0.7;
       return `M ${cx1} ${midY} C ${cx1 - r} ${midY - r}, ${cx1 - r} ${midY + r}, ${cx1} ${midY} C ${cx1 + r * 1.5} ${midY - r * 1.5}, ${cx2 - r * 1.5} ${midY + r * 1.5}, ${cx2} ${midY} C ${cx2 + r} ${midY - r}, ${cx2 + r} ${midY + r}, ${cx2} ${midY} C ${cx2 - r * 1.5} ${midY - r * 1.5}, ${cx1 + r * 1.5} ${midY + r * 1.5}, ${cx1} ${midY} Z`;
     }
     default:
-      return `M 0 ${midY} L ${VIEW_W} ${midY}`;
+      return `M 0 ${midY} L ${viewW} ${midY}`;
   }
 }
 
@@ -78,6 +81,7 @@ export function TextLoop({
   ribbon = false,
   ribbonColor = 'currentColor',
   ribbonWidth = 1,
+  ribbonOpacity = 1,
   pauseOnHover = false,
   className,
   style
@@ -90,7 +94,29 @@ export function TextLoop({
   const tweenRef = useRef<gsap.core.Tween | null>(null);
   const reduceMotion = useReducedMotion();
 
-  const d = path ?? buildPath(shape, curviness);
+  // The path/text/ribbon must fill this element's actual rendered box, not a fixed
+  // 1000x200 abstraction — with the default `xMidYMid meet` viewBox scaling, any
+  // container whose aspect ratio isn't 5:1 gets letterboxed, shrinking the visible
+  // content well below what the wrapper's CSS size implies (the root cause behind
+  // this component reading as "microscopic" no matter how the numeric props were
+  // tuned). An explicit `path` prop assumes the default coordinate space instead.
+  const [dims, setDims] = useState({ w: DEFAULT_VIEW_W, h: DEFAULT_VIEW_H });
+
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || path) return;
+    const measure = () => {
+      const rect = svg.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) setDims({ w: rect.width, h: rect.height });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [path]);
+
+  const viewW = path ? DEFAULT_VIEW_W : dims.w;
+  const viewH = path ? DEFAULT_VIEW_H : dims.h;
+  const d = path ?? buildPath(shape, curviness, viewW, viewH);
   const displayText = uppercase ? text.toUpperCase() : text;
   const loopText = `${displayText} ${separator} `.repeat(3);
 
@@ -128,7 +154,7 @@ export function TextLoop({
   return (
     <svg
       ref={svgRef}
-      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+      viewBox={`0 0 ${viewW} ${viewH}`}
       className={className}
       style={style}
       aria-hidden
@@ -144,7 +170,7 @@ export function TextLoop({
           stroke={ribbonColor}
           strokeWidth={ribbonWidth}
           fill='none'
-          opacity={0.5}
+          opacity={ribbonOpacity}
         />
       )}
       <text

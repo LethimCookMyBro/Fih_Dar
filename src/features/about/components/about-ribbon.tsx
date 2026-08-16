@@ -1,23 +1,30 @@
 import { TextLoop } from '@/components/visuals/text-loop';
 
-/** Section-transition ribbon — the one non-auth use of TextLoop on this page. */
+/**
+ * Section-transition ribbon. Full-bleed on purpose: the brand color lives on the
+ * moving curved band itself (via TextLoop's `ribbon`), not on a flat rectangular
+ * section background, so the page stays neutral behind it.
+ */
 export function AboutRibbon() {
   return (
-    <div className='bg-brand text-brand-foreground border-y'>
-      <div className='mx-auto h-16 w-full max-w-5xl px-4 sm:px-6 lg:px-8'>
+    <div className='bg-background overflow-hidden border-y'>
+      <div className='h-[160px] w-full md:h-[190px]'>
         <TextLoop
           text='MONITOR • UNDERSTAND • PRIORITIZE • FIHDAR'
-          shape='line'
-          speed={30}
+          shape='wave'
+          speed={65}
+          direction='forward'
           separator='•'
-          fontSize={16}
-          fontWeight={600}
-          letterSpacing={2}
+          curviness={42}
+          fontSize={34}
+          fontWeight={700}
+          letterSpacing={3}
           uppercase
-          color='rgba(255,255,255,0.75)'
+          color='#ffffff'
           ribbon
-          ribbonColor='rgba(255,255,255,0.25)'
-          ribbonWidth={1}
+          ribbonColor='#4b2142'
+          ribbonWidth={72}
+          pauseOnHover
           className='h-full w-full'
         />
       </div>

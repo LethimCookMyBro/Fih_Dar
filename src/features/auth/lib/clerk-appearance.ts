@@ -38,8 +38,8 @@ export const clerkAppearance: Appearance = {
     // everywhere else in the app.
     cardBox: 'w-full border border-border rounded-2xl shadow-none',
     card: 'bg-background shadow-none',
-    headerTitle: 'text-xl font-semibold tracking-tight',
-    headerSubtitle: 'text-[0.9375rem]',
+    headerTitle: 'text-2xl font-semibold tracking-tight',
+    headerSubtitle: 'text-muted-foreground text-[0.9375rem]',
     // 44px controls, consistent with the rest of the form system.
     formButtonPrimary: 'h-11 text-[0.9375rem] font-medium normal-case tracking-normal',
     // Border-defined, matching src/components/ui/input.tsx. Without the explicit
@@ -48,7 +48,11 @@ export const clerkAppearance: Appearance = {
     formFieldInput: 'h-11 border border-input bg-transparent text-[0.9375rem]',
     formFieldLabel: 'text-[0.9375rem]',
     socialButtonsBlockButton: 'h-11 text-[0.9375rem] normal-case',
+    // Clerk renders the branding/dev-mode row as a visually separate grey slab by
+    // default; matching it to the card removes the seam without hiding its content.
+    footer: 'bg-background border-none',
+    footerAction: 'bg-background',
     footerActionText: 'text-[0.9375rem]',
-    footerActionLink: 'text-[0.9375rem]'
+    footerActionLink: 'text-[0.9375rem] font-medium'
   }
 };
