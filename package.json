@@ -24,6 +24,7 @@
     "db:intel": "node --env-file=.env scripts/intel/process.mjs",
     "db:refresh": "node --env-file=.env scripts/refresh-intelligence.mjs",
     "db:refresh:prod": "node scripts/refresh-intelligence.mjs",
+    "test:e2e": "playwright test",
     "intel:test": "node scripts/intel/self-test.mjs",
     "intel:benchmark": "node --env-file=.env scripts/intel/benchmark.mjs",
     "intel:export-review": "node --env-file=.env scripts/intel/export-review.mjs",
@@ -104,6 +105,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "22.10.2",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
