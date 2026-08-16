@@ -46,6 +46,7 @@ function sanitizeStatus(
 export async function getSourcesSummary() {
   const [
     latestRun,
+    recentRuns,
     observationCounts,
     processingCounts,
     verdictCounts,
@@ -53,6 +54,7 @@ export async function getSourcesSummary() {
     lastCreatedBySource
   ] = await Promise.all([
     prisma.ingestionRun.findFirst({ orderBy: { startedAt: 'desc' } }),
+    prisma.ingestionRun.findMany({ orderBy: { startedAt: 'desc' }, take: 5 }),
     prisma.externalObservation.groupBy({ by: ['sourceName'], _count: { _all: true } }),
     prisma.externalObservation.groupBy({ by: ['processingStatus'], _count: { _all: true } }),
     prisma.externalObservation.groupBy({ by: ['relevanceVerdict'], _count: { _all: true } }),
@@ -81,6 +83,18 @@ export async function getSourcesSummary() {
     : null;
 
   const latestSourceResults = (latestRun?.sourceResults ?? []) as SourceResult[];
+
+  const recentRunsResult = recentRuns.map((run) => ({
+    id: run.id,
+    status: run.status,
+    startedAt: run.startedAt.toISOString(),
+    finishedAt: run.finishedAt?.toISOString() ?? null,
+    createdCount: run.createdCount,
+    skippedCount: run.skippedCount,
+    processedCount: run.processedCount,
+    failedCount: run.failedCount,
+    isStale: run.status === 'RUNNING' && Date.now() - run.startedAt.getTime() > STALE_RUN_MS
+  }));
 
   const sources = SOURCE_DEFINITIONS.map((definition) => {
     const sourceResult =
@@ -121,6 +135,7 @@ export async function getSourcesSummary() {
   return {
     generatedAt: new Date().toISOString(),
     latestRun: latestRunResult,
+    recentRuns: recentRunsResult,
     sources,
     pipeline
   };

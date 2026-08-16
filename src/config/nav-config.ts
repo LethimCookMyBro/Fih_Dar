@@ -24,6 +24,12 @@ export const navGroups: NavGroup[] = [
         items: []
       },
       {
+        title: 'แหล่งข้อมูล',
+        url: '/sources',
+        icon: 'database',
+        items: []
+      },
+      {
         title: 'เกี่ยวกับ FihDar',
         url: '/about',
         icon: 'info',

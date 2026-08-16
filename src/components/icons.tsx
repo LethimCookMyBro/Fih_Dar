@@ -98,6 +98,7 @@ import {
   IconUsers,
   IconVideo,
   IconCrown,
+  IconDatabase,
   IconX
 } from '@tabler/icons-react';
 
@@ -243,5 +244,6 @@ export const Icons = {
   locate: IconCurrentLocation,
   target: IconTargetArrow,
   flask: IconFlask,
+  database: IconDatabase,
   menu: IconMenu2
 };
