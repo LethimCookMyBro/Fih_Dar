@@ -21,6 +21,7 @@
 
 import { PrismaClient } from '@prisma/client';
 
+import { exitCodeForStatus } from './ingestion/exit-code.mjs';
 import { runIngestion } from './ingestion/run-ingestion.mjs';
 import { runIntelligence } from './intel/process.mjs';
 
@@ -119,7 +120,9 @@ async function main() {
 main()
   .then((status) => {
     console.log(`[refresh] done (${status})`);
-    process.exitCode = status === 'SUCCEEDED' ? 0 : 1;
+    // SUCCEEDED and PARTIAL exit 0 — a partial run is completed work and the
+    // Railway schedule must keep ticking. Only FAILED exits non-zero.
+    process.exitCode = exitCodeForStatus(status);
   })
   .catch((error) => {
     // Even an unhandled error below run-finalization must not be silent: try

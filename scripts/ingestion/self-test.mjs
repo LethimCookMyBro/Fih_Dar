@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict';
 
 import { parseRssItems, provinceFromText, fetchGoogleNews, fetchDataGoTh } from './sources.mjs';
+import { exitCodeForStatus } from './exit-code.mjs';
 import { ingestionStatus, runIngestion, upsertObservations } from './run-ingestion.mjs';
 
 let failures = 0;
@@ -190,6 +191,12 @@ check(gnewsRows[0].province === 'ชลบุรี', 'province extracted from g
 const dgothRows = await fetchDataGoTh(stubFetch(sourcesMap));
 check(dgothRows.length === 1 && dgothRows[0].sourceName === 'data.go.th', 'data.go.th rows mapped');
 check(dgothRows[0].sourceExternalId === 'd1' && dgothRows[0].title.includes('&'), 'data.go.th id + decoded title');
+
+// --- refresh runner exit-code policy ------------------------------------------
+console.log('exit-code policy');
+check(exitCodeForStatus('SUCCEEDED') === 0, 'SUCCEEDED exits 0');
+check(exitCodeForStatus('PARTIAL') === 0, 'PARTIAL exits 0 (schedule keeps ticking; failure is recorded)');
+check(exitCodeForStatus('FAILED') === 1, 'FAILED exits non-zero');
 
 console.log(failures === 0 ? '\nall ingestion self-tests passed' : `\n${failures} assertion(s) FAILED`);
 process.exitCode = failures === 0 ? 0 : 1;
