@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
+  <defs>
+    <radialGradient id="glow-b" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#70405f" stop-opacity="0.28" />
+      <stop offset="100%" stop-color="#14181a" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <rect width="400" height="600" fill="#14181a" />
+  <rect width="400" height="600" fill="url(#glow-b)" />
+
+  <g opacity="0.08" stroke="#ffffff" stroke-width="1" fill="none">
+    <path d="M -20 200 C 100 175, 150 225, 250 200 S 400 175, 520 200" />
+    <path d="M -20 400 C 100 375, 150 425, 250 400 S 400 375, 520 400" />
+  </g>
+
+  <g transform="translate(200,270)">
+    <rect x="-26" y="-26" width="52" height="52" rx="14" fill="#2a9d8f" opacity="0.9" />
+    <path d="M -12 4 L -2 -10 L 7 -1 L 13 -12" stroke="#14181a" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="13" cy="-12" r="2.6" fill="#14181a" />
+  </g>
+
+  <text x="200" y="336" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="13" letter-spacing="5" fill="#8ecfc6">GEOSPATIAL INTELLIGENCE</text>
+
+  <line x1="150" y1="366" x2="250" y2="366" stroke="#70405f" stroke-width="1" opacity="0.6" />
+
+  <text x="200" y="560" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="11" letter-spacing="2" fill="#5b6467">FIHDAR &#8226; EEC</text>
+</svg>

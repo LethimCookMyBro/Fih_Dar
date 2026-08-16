@@ -15,19 +15,6 @@ export function AboutStory() {
   );
 }
 
-export function AboutTeam() {
-  return (
-    <section className='border-t'>
-      <div className='mx-auto w-full max-w-3xl px-4 py-20 text-center sm:px-6 md:py-24 lg:px-8'>
-        <p className='text-muted-foreground font-mono text-[0.75rem] tracking-[0.18em] uppercase'>
-          ทีมผู้พัฒนา
-        </p>
-        <h2 className='mt-3 text-3xl font-semibold tracking-tight md:text-4xl'>ทีมนกพิราบก้าวร้าว</h2>
-      </div>
-    </section>
-  );
-}
-
 export function AboutCta() {
   return (
     <section className='bg-muted/30 border-t'>

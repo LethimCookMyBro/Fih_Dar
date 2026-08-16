@@ -1,124 +1,58 @@
-'use client';
-
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
-import SoftAurora from '@/components/reactbits/soft-aurora';
-import { CoordinateTicks, TopographicLines } from '@/components/visuals/geospatial-texture';
-
-const PANEL_BG = '#14181a';
-const KEPPEL = '#2a9d8f';
-const EGGPLANT = '#70405f';
+import { AboutLanyard } from './about-lanyard';
 
 /**
- * Full-bleed product hero, fixed dark like the auth panel (a brand moment, not
- * app chrome — the rest of the page stays theme-aware). Same SoftAurora engine
- * as auth, different placement/scale so the two don't read as copy-pasted.
+ * About's hero is deliberately NOT Auth's hero: a light, editorial layout instead of a
+ * full-bleed dark WebGL panel, so the two pages read as related (palette, type, radii)
+ * rather than copy-pasted. The signature visual here is the interactive FihDar lanyard
+ * badge, not a shader field. Text comes first in document order (and visually first on
+ * mobile) — the hero's job is "what is this, who made it", not a game.
  */
 export function AboutHero() {
   return (
-    <section
-      className='relative flex min-h-[74vh] items-center overflow-hidden'
-      style={{ backgroundColor: PANEL_BG }}
-    >
-      <HeroBackground />
-      <div className='relative z-10 mx-auto flex w-full max-w-7xl flex-col items-center px-4 py-20 text-center sm:px-6 lg:px-8'>
-        <p className='font-mono text-[0.75rem] tracking-[0.3em] text-white/50 uppercase'>
-          FihDar • EEC
-        </p>
-        <h1 className='mt-5 text-6xl font-semibold tracking-tight text-balance text-white md:text-8xl'>
-          FihDar
-        </h1>
-        <p className='mt-6 max-w-2xl text-xl leading-relaxed text-balance text-white/80 md:text-2xl'>
-          เห็นสัญญาณให้ชัดขึ้น ก่อนตัดสินใจลงพื้นที่
-        </p>
-        <div className='mt-10 flex flex-wrap items-center justify-center gap-3'>
-          <Button
-            nativeButton={false}
-            className='h-12 px-7 text-base'
-            style={{ backgroundColor: KEPPEL }}
-            render={<Link href='/map' aria-label='สำรวจแผนที่' />}
-          >
-            <Icons.map />
-            สำรวจแผนที่
-          </Button>
-          <Button
-            nativeButton={false}
-            variant='outline'
-            className='h-12 border-white/25 bg-white/5 px-7 text-base text-white hover:bg-white/10 hover:text-white'
-            render={<Link href='/report' aria-label='แจ้งการพบ' />}
-          >
-            <Icons.mapPinPlus />
-            แจ้งการพบ
-          </Button>
+    <section className='relative overflow-hidden border-b'>
+      <div
+        aria-hidden
+        className='pointer-events-none absolute inset-0'
+        style={{
+          background:
+            'radial-gradient(60% 55% at 85% 15%, color-mix(in oklch, var(--primary) 8%, transparent), transparent 70%)'
+        }}
+      />
+      <div className='relative mx-auto grid w-full max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 md:py-20 lg:grid-cols-[55fr_45fr] lg:gap-8 lg:py-28 lg:px-8'>
+        <div className='flex flex-col items-center text-center lg:items-start lg:text-start'>
+          <p className='text-muted-foreground font-mono text-[0.75rem] tracking-[0.3em] uppercase'>
+            FihDar • EEC
+          </p>
+          <h1 className='mt-5 text-5xl font-semibold tracking-tight text-balance md:text-6xl'>
+            FihDar
+          </h1>
+          <p className='text-muted-foreground mt-5 max-w-md text-lg leading-relaxed text-balance md:text-xl'>
+            ระบบเฝ้าระวังเชิงพื้นที่
+            <br />
+            เพื่อช่วยให้เห็นว่าควรเริ่มตรวจสอบตรงไหนก่อน
+          </p>
+          <div className='mt-8'>
+            <Button
+              nativeButton={false}
+              className='h-12 px-7 text-base'
+              render={<Link href='/map' aria-label='สำรวจแผนที่' />}
+            >
+              <Icons.map />
+              สำรวจแผนที่
+            </Button>
+          </div>
+        </div>
+
+        {/* Capped on mobile so the badge is a visual accent below the copy, never a
+            near-100vh block the user has to scroll past to reach any information. */}
+        <div className='h-[320px] w-full sm:h-[380px] lg:h-[520px]'>
+          <AboutLanyard />
         </div>
       </div>
     </section>
-  );
-}
-
-function HeroBackground() {
-  // See auth-visual.tsx's AuthBackground: matchMedia is read in an effect (not
-  // motion/react's useReducedMotion) so the first client render matches the server.
-  // Unlike the auth panel (CSS-hidden below `lg`), this hero is always visible, so the
-  // WebGL field itself is gated on viewport width to keep phones off the shader cost.
-  const [env, setEnv] = useState<{ reduceMotion: boolean; wide: boolean } | null>(null);
-
-  useEffect(() => {
-    const reduceMql = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const wideMql = window.matchMedia('(min-width: 640px)');
-    const update = () => setEnv({ reduceMotion: reduceMql.matches, wide: wideMql.matches });
-    update();
-    reduceMql.addEventListener('change', update);
-    wideMql.addEventListener('change', update);
-    return () => {
-      reduceMql.removeEventListener('change', update);
-      wideMql.removeEventListener('change', update);
-    };
-  }, []);
-
-  const runAurora = env !== null && env.wide && !env.reduceMotion;
-
-  return (
-    <div aria-hidden className='absolute inset-0'>
-      {runAurora && (
-        <SoftAurora
-          speed={0.55}
-          scale={1.85}
-          brightness={1.05}
-          color1={KEPPEL}
-          color2={EGGPLANT}
-          noiseFrequency={1.4}
-          noiseAmplitude={1.3}
-          bandHeight={0.58}
-          bandSpread={1.1}
-          octaveDecay={0.22}
-          layerOffset={0.5}
-          colorSpeed={0.4}
-          enableMouseInteraction
-          mouseInfluence={0.05}
-        />
-      )}
-      {!runAurora && (
-        <div
-          className='absolute inset-0'
-          style={{
-            background: `radial-gradient(65% 55% at 32% 30%, rgba(42,157,143,0.34), transparent 62%),
-              radial-gradient(60% 50% at 72% 65%, rgba(112,64,95,0.3), transparent 65%)`,
-            filter: 'blur(52px)'
-          }}
-        />
-      )}
-      <TopographicLines opacity={0.07} />
-      <CoordinateTicks opacity={0.16} />
-      <div
-        className='absolute inset-0'
-        style={{
-          background: `radial-gradient(90% 75% at 50% 38%, transparent 45%, ${PANEL_BG} 96%)`
-        }}
-      />
-    </div>
   );
 }

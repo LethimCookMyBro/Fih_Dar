@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#2a9d8f" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#14181a" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="sweep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a9d8f" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#2a9d8f" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <rect width="400" height="600" fill="#14181a" />
+  <rect width="400" height="600" fill="url(#glow)" />
+
+  <!-- topographic contour lines, matching the app's brand-panel texture language -->
+  <g opacity="0.10" stroke="#ffffff" stroke-width="1" fill="none">
+    <path d="M -20 120 C 100 95, 150 145, 250 120 S 400 95, 520 120" />
+    <path d="M -20 250 C 100 225, 150 275, 250 250 S 400 225, 520 250" />
+    <path d="M -20 470 C 100 445, 150 495, 250 470 S 400 445, 520 470" />
+  </g>
+
+  <!-- radar mark -->
+  <g transform="translate(200,180)">
+    <circle r="72" fill="none" stroke="#2a9d8f" stroke-width="1.5" opacity="0.35" />
+    <circle r="50" fill="none" stroke="#2a9d8f" stroke-width="1.5" opacity="0.5" />
+    <circle r="28" fill="none" stroke="#2a9d8f" stroke-width="1.5" opacity="0.7" />
+    <path d="M 0 0 L 0 -72 A 72 72 0 0 1 51 -51 Z" fill="url(#sweep)" opacity="0.55" />
+    <rect x="-30" y="-30" width="60" height="60" rx="16" fill="#2a9d8f" />
+    <path d="M -14 4 L -2 -12 L 8 -2 L 15 -14" stroke="#14181a" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="15" cy="-14" r="3" fill="#14181a" />
+  </g>
+
+  <text x="200" y="300" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="46" font-weight="700" letter-spacing="2" fill="#f5f7f7">FIHDAR</text>
+  <text x="200" y="330" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="15" letter-spacing="4" fill="#8ecfc6">FISH + RADAR</text>
+
+  <line x1="90" y1="368" x2="310" y2="368" stroke="#70405f" stroke-width="1" opacity="0.6" />
+
+  <text x="200" y="410" text-anchor="middle" font-family="'Noto Sans Thai', Tahoma, 'Segoe UI', system-ui, sans-serif" font-size="14" fill="#c9a9bd">ทีม</text>
+  <text x="200" y="436" text-anchor="middle" font-family="'Noto Sans Thai', Tahoma, 'Segoe UI', system-ui, sans-serif" font-size="20" font-weight="600" fill="#f5f7f7">ทีมนกพิราบก้าวร้าว</text>
+
+  <g transform="translate(200,520)">
+    <rect x="-38" y="-15" width="76" height="30" rx="15" fill="none" stroke="#2a9d8f" stroke-width="1.2" opacity="0.7" />
+    <text x="0" y="5" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="13" letter-spacing="2" fill="#8ecfc6">EEC</text>
+  </g>
+</svg>
