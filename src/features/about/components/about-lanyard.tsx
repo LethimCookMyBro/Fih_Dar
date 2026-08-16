@@ -48,19 +48,25 @@ export function AboutLanyard() {
           frontImage={CARD_FRONT}
           backImage={CARD_BACK}
           imageFit='cover'
-          stripColor='#4b2142'
+          // The strap's own texture (public/reactbits/lanyard/lanyard-strap.png) now
+          // carries the Lava/charcoal base + Keppel mark + Eggplant piping directly, so
+          // stripColor stays at the component's white default — meshLineMaterial
+          // multiplies stripColor against the texture, and a colour override here would
+          // just tint/darken that art instead of letting it render as authored.
+          lanyardWidth={0.25}
           gravity={[0, -32, 0]}
           // Default camera (z=30, fov=20) frames a ~10.6-unit-tall window — huge
           // relative to the card, which is why the stock demo reads as a small
           // badge no matter how big its CSS container is (world-space framing,
           // not container size, controls how large the card renders). Moving the
           // camera to z=17 roughly halves that window so the card actually fills
-          // the frame. The y offset then places the window so its top edge sits
-          // just below the fixed rope anchor (world y=4) — the anchor itself
-          // stays just out of frame, so what's visible is the strap already
+          // the frame. The y offset places the window so its top edge sits a real
+          // margin (~0.5 world units, not a hairline) below the fixed rope anchor
+          // (world y=4) — the anchor stays out of frame with enough clearance that
+          // normal sway can't expose it, so what's visible is the strap already
           // descending from the top edge, with headroom below for the card and
           // its swing.
-          position={[0, 0.85, 17]}
+          position={[0, 0.5, 17]}
           onContextLost={() => setContextLost(true)}
         />
       ) : (

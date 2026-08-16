@@ -212,8 +212,8 @@ function Band({
     type: 'dynamic',
     canSleep: true,
     colliders: false,
-    angularDamping: 4,
-    linearDamping: 4
+    angularDamping: 5,
+    linearDamping: 5
   };
 
   const getLerped = (body: LanyardRigidBody): THREE.Vector3 => {
@@ -346,19 +346,25 @@ function Band({
 
   return (
     <>
+      {/* Joints spawn close to a vertical hang (a small X stagger, not the registry demo's
+          full 0.5/1/1.5/2 spread) so gravity only has a short arc to resolve on mount —
+          the original spread let the chain launch into a wide pendulum swing on load that
+          could carry the card mostly out of the hero's visible frame. This keeps a real,
+          visible drop-and-settle instead of a dead-static pose while bounding how far it
+          travels to get there. */}
       <group position={[0, 4, 0]}>
         <RigidBody ref={fixed} {...segmentProps} type='fixed' />
-        <RigidBody position={[0.5, 0, 0]} ref={j1} {...segmentProps} type='dynamic'>
+        <RigidBody position={[0.15, 0, 0]} ref={j1} {...segmentProps} type='dynamic'>
           <BallCollider args={[0.1]} />
         </RigidBody>
-        <RigidBody position={[1, 0, 0]} ref={j2} {...segmentProps} type='dynamic'>
+        <RigidBody position={[0.3, 0, 0]} ref={j2} {...segmentProps} type='dynamic'>
           <BallCollider args={[0.1]} />
         </RigidBody>
-        <RigidBody position={[1.5, 0, 0]} ref={j3} {...segmentProps} type='dynamic'>
+        <RigidBody position={[0.45, 0, 0]} ref={j3} {...segmentProps} type='dynamic'>
           <BallCollider args={[0.1]} />
         </RigidBody>
         <RigidBody
-          position={[2, 0, 0]}
+          position={[0.6, 0, 0]}
           ref={card}
           {...segmentProps}
           type={dragged ? 'kinematicPosition' : 'dynamic'}
@@ -379,13 +385,21 @@ function Band({
             }}
           >
             <mesh geometry={nodes.card.geometry}>
+              {/* The registry demo's metalness={0.8}/roughness={0.9} combo reads as a
+                  nearly-black slab under this scene's Environment: the Lightformers are a
+                  handful of thin bright strips over an otherwise dark void, and a rough
+                  metal surface gets almost all of its brightness from environment
+                  reflection (near-zero diffuse albedo) — so a sparse environment renders
+                  it black regardless of the card's own texture. Low metalness makes the
+                  material behave like a laminated card (diffuse albedo from cardMap
+                  actually shows), with clearcoat still carrying the glossy edge highlight. */}
               <meshPhysicalMaterial
                 map={cardMap}
                 map-anisotropy={16}
                 clearcoat={isMobile ? 0 : 1}
                 clearcoatRoughness={0.15}
-                roughness={0.9}
-                metalness={0.8}
+                roughness={0.55}
+                metalness={0.15}
               />
             </mesh>
             <mesh

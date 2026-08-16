@@ -220,6 +220,16 @@ function DitheredWaves({
 }: DitheredWavesProps) {
   const mesh = useRef<THREE.Mesh>(null);
   const mouseRef = useRef(new THREE.Vector2());
+  // R3F's applyProps special-cases a shaderMaterial's `uniforms` prop: on mount it
+  // shallow-copies each entry into a NEW target object (`uniforms[name] = { ...uniform }`)
+  // rather than adopting the ref's Uniform instances directly. For object-valued uniforms
+  // (mousePos, a Vector2) that copy shares the `.value` reference, so later `.copy()` calls
+  // still reach the GPU — that's why mouse interaction works. For primitive-valued uniforms
+  // (time, a number) the copy severs the link: reassigning `waveUniformsRef.current.time.value`
+  // below mutates an object the material never reads again, so the shader's time input stays
+  // frozen at its mount value forever. Writing straight into the material's own live uniforms
+  // (materialRef) bypasses that indirection for the one uniform that must change every frame.
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
   const { viewport, size, gl } = useThree();
 
   const waveUniformsRef = useRef<WaveUniforms>({
@@ -250,6 +260,7 @@ function DitheredWaves({
 
     if (!disableAnimation) {
       u.time.value = clock.getElapsedTime();
+      if (materialRef.current) materialRef.current.uniforms.time.value = u.time.value;
     }
 
     if (u.waveSpeed.value !== waveSpeed) u.waveSpeed.value = waveSpeed;
@@ -281,6 +292,7 @@ function DitheredWaves({
       <mesh ref={mesh} scale={[viewport.width, viewport.height, 1]}>
         <planeGeometry args={[1, 1]} />
         <shaderMaterial
+          ref={materialRef}
           vertexShader={waveVertexShader}
           fragmentShader={waveFragmentShader}
           uniforms={waveUniformsRef.current}

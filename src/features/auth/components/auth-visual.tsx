@@ -108,14 +108,14 @@ function AuthBackground() {
     <div aria-hidden className='absolute inset-0'>
       {runDither ? (
         <Dither
-          waveSpeed={0.22}
-          waveFrequency={2.6}
-          waveAmplitude={0.32}
+          waveSpeed={0.3}
+          waveFrequency={2.5}
+          waveAmplitude={0.33}
           waveColor={[0.16, 0.61, 0.56]}
           colorNum={5}
           pixelSize={2.5}
           enableMouseInteraction
-          mouseRadius={0.45}
+          mouseRadius={0.48}
           onContextLost={() => setContextLost(true)}
         />
       ) : (

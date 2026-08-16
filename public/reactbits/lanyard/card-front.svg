@@ -8,10 +8,19 @@
       <stop offset="0%" stop-color="#2a9d8f" stop-opacity="0.9" />
       <stop offset="100%" stop-color="#2a9d8f" stop-opacity="0" />
     </linearGradient>
+    <!-- Depth cues: a soft top-catch-light and a slightly deeper footer band, so the
+         card reads as a laminated surface with hierarchy rather than one flat fill. -->
+    <linearGradient id="surface" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#232a2c" stop-opacity="0.55" />
+      <stop offset="16%" stop-color="#14181a" stop-opacity="0" />
+      <stop offset="82%" stop-color="#14181a" stop-opacity="0" />
+      <stop offset="100%" stop-color="#0d1011" stop-opacity="0.55" />
+    </linearGradient>
   </defs>
 
   <rect width="400" height="600" fill="#14181a" />
   <rect width="400" height="600" fill="url(#glow)" />
+  <rect width="400" height="600" fill="url(#surface)" />
 
   <!-- topographic contour lines, matching the app's brand-panel texture language -->
   <g opacity="0.10" stroke="#ffffff" stroke-width="1" fill="none">
@@ -19,6 +28,11 @@
     <path d="M -20 250 C 100 225, 150 275, 250 250 S 400 225, 520 250" />
     <path d="M -20 470 C 100 445, 150 495, 250 470 S 400 445, 520 470" />
   </g>
+
+  <!-- footer section tint: differentiates the credential block from the brand mark
+       above it without a hard seam -->
+  <rect x="0" y="378" width="400" height="222" fill="#0d1011" opacity="0.32" />
+  <line x1="48" y1="378.5" x2="352" y2="378.5" stroke="#2a9d8f" stroke-width="1" opacity="0.14" />
 
   <!-- FihDar mark: sonar ring + tapered sweep/fin blade -->
   <g transform="translate(200,180) scale(6.5) translate(-16,-16)">
@@ -30,16 +44,21 @@
     <circle cx="16" cy="16" r="1.8" fill="#2a9d8f" />
   </g>
 
-  <text x="200" y="300" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="46" font-weight="700" letter-spacing="2" fill="#f5f7f7">FIHDAR</text>
-  <text x="200" y="330" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="15" letter-spacing="4" fill="#8ecfc6">FISH + RADAR</text>
+  <text x="200" y="300" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="47" font-weight="800" letter-spacing="2.5" fill="#f5f7f7">FIHDAR</text>
+  <text x="200" y="330" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="14" letter-spacing="5" fill="#7fb8b0">FISH + RADAR</text>
 
   <line x1="90" y1="368" x2="310" y2="368" stroke="#70405f" stroke-width="1" opacity="0.6" />
 
-  <text x="200" y="410" text-anchor="middle" font-family="'Noto Sans Thai', Tahoma, 'Segoe UI', system-ui, sans-serif" font-size="14" fill="#c9a9bd">ทีม</text>
-  <text x="200" y="436" text-anchor="middle" font-family="'Noto Sans Thai', Tahoma, 'Segoe UI', system-ui, sans-serif" font-size="20" font-weight="600" fill="#f5f7f7">ทีมนกพิราบก้าวร้าว</text>
+  <text x="200" y="410" text-anchor="middle" font-family="'Noto Sans Thai', Tahoma, 'Segoe UI', system-ui, sans-serif" font-size="13" letter-spacing="1" fill="#8f98a0">ทีม</text>
+  <text x="200" y="437" text-anchor="middle" font-family="'Noto Sans Thai', Tahoma, 'Segoe UI', system-ui, sans-serif" font-size="21" font-weight="700" fill="#f5f7f7">ทีมนกพิราบก้าวร้าว</text>
 
   <g transform="translate(200,520)">
+    <rect x="-38" y="-15" width="76" height="30" rx="15" fill="#4b2142" opacity="0.14" />
     <rect x="-38" y="-15" width="76" height="30" rx="15" fill="none" stroke="#2a9d8f" stroke-width="1.2" opacity="0.7" />
     <text x="0" y="5" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="13" letter-spacing="2" fill="#8ecfc6">EEC</text>
   </g>
+
+  <!-- restrained edge/border detail: a laminate-card inset line -->
+  <rect x="12" y="12" width="376" height="576" rx="22" fill="none" stroke="#3a4245" stroke-width="1.5" opacity="0.55" />
+  <rect x="12" y="12" width="376" height="576" rx="22" fill="none" stroke="#2a9d8f" stroke-width="1" opacity="0.1" />
 </svg>

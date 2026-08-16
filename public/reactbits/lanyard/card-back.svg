@@ -14,6 +14,8 @@
     <path d="M -20 400 C 100 375, 150 425, 250 400 S 400 375, 520 400" />
   </g>
 
+  <rect x="12" y="12" width="376" height="576" rx="22" fill="none" stroke="#3a4245" stroke-width="1.5" opacity="0.55" />
+
   <g transform="translate(200,270) scale(2.7) translate(-16,-16)">
     <circle cx="16" cy="16" r="11" fill="none" stroke="#2a9d8f" stroke-width="2.25" />
     <path
