@@ -9,6 +9,10 @@
 import assert from 'node:assert/strict';
 
 import { parseRssItems, provinceFromText, fetchGoogleNews, fetchDataGoTh } from './sources.mjs';
+import { passesNewsPrefilter } from './adapters/common.mjs';
+import { fetchRssFeed } from './adapters/rss.mjs';
+import { fetchJsonApi } from './adapters/json-api.mjs';
+import { syncSourceRegistry } from './registry.mjs';
 import { exitCodeForStatus } from './exit-code.mjs';
 import { ingestionStatus, runIngestion, upsertObservations } from './run-ingestion.mjs';
 
@@ -25,8 +29,19 @@ function check(condition, message) {
 // --- fake prisma: in-memory map keyed by `${sourceName}|${sourceExternalId}` ---
 function fakePrisma() {
   const rows = new Map();
+  const sourceRows = new Map();
   return {
     __rows: rows,
+    __sources: sourceRows,
+    dataSource: {
+      async upsert({ where, update, create }) {
+        const slug = where.slug;
+        const existing = sourceRows.get(slug);
+        const row = existing ? { ...existing, ...update } : { id: `ds-${slug}`, slug, ...create };
+        sourceRows.set(slug, row);
+        return row;
+      }
+    },
     externalObservation: {
       async findUnique({ where }) {
         const key = where.sourceName_sourceExternalId
@@ -86,6 +101,90 @@ check(items[0].guid === 'g-1', 'guid preserved');
 check(items[1].guid === 'https://example.com/b', 'guid falls back to link');
 check(items[0].pubDate instanceof Date && items[0].pubDate.toISOString().startsWith('2026-08-15'), 'pubDate parsed');
 
+// --- news prefilter -----------------------------------------------------------
+console.log('passesNewsPrefilter');
+check(passesNewsPrefilter('กรมประมง เร่งกำจัดปลาหมอคางดำในคลองบางปะกง'), 'species term kept');
+check(passesNewsPrefilter('พบปลาหมอคางดำที่ จ.ชลบุรี จำนวนมาก'), 'species term + province kept');
+check(passesNewsPrefilter('ราคาปลานิลวันนี้ ตลาด จ.ระยอง'), 'generic tilapia + EEC province kept');
+check(!passesNewsPrefilter('ราคาปลานิลวันนี้ ตลาดกรุงเทพ'), 'generic tilapia without EEC province dropped');
+check(!passesNewsPrefilter('ฟุตบอลไทยลีก นัดชี้ขาดวันนี้'), 'unrelated football dropped');
+check(!passesNewsPrefilter(''), 'empty text dropped');
+
+// --- RSS adapter with prefilter -----------------------------------------------
+console.log('fetchRssFeed (prefiltered outlet feed)');
+const outletXml = `<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>ชาวบ้านพบปลาหมอคางดำในคลองที่ชลบุรี</title><link>https://www.matichon.co.th/?p=1</link><guid>https://www.matichon.co.th/?p=1</guid><pubDate>Sun, 16 Aug 2026 01:00:00 +0000</pubDate><description>รายละเอียดข่าวปลาหมอคางดำ</description></item>
+<item><title>ฟุตบอลไทยลีกนัดชี้ขาด</title><link>https://www.matichon.co.th/?p=2</link><guid>https://www.matichon.co.th/?p=2</guid><pubDate>Sun, 16 Aug 2026 02:00:00 +0000</pubDate><description>ข่าวกีฬา</description></item>
+</channel></rss>`;
+const outletRows = await fetchRssFeed({
+  fetchFn: stubFetch({ 'https://www.matichon.co.th/feed': { body: outletXml } }),
+  url: 'https://www.matichon.co.th/feed',
+  sourceName: 'matichon',
+  queryLabel: 'Matichon RSS (prefiltered)',
+  prefilter: true
+});
+check(outletRows.length === 1, `prefilter keeps 1 of 2 items (got ${outletRows.length})`);
+check(outletRows[0].sourceName === 'matichon', 'outlet rows tagged with source slug');
+check(outletRows[0].sourceExternalId === 'https://www.matichon.co.th/?p=1', 'guid is deterministic external id');
+check(outletRows[0].province === 'ชลบุรี', 'province extracted from outlet item text');
+
+// --- JSON API adapter (iNaturalist mapper) ------------------------------------
+console.log('fetchJsonApi / iNaturalist');
+const inatBody = {
+  total_results: 2,
+  results: [
+    {
+      id: 391157436,
+      observed_on: '2026-08-14',
+      place_guess: 'ชายหาดบางเสร่, อ.สัตหีบ, จ.ชลบุรี, TH',
+      location: '12.776572807,100.9024785497',
+      quality_grade: 'needs_id',
+      uri: 'https://www.inaturalist.org/observations/391157436'
+    },
+    {
+      id: 390367630,
+      observed_on: '2026-08-11',
+      place_guess: 'Sathon District, Bangkok, TH',
+      location: '13.718825,100.5434333333',
+      quality_grade: 'research',
+      uri: 'https://www.inaturalist.org/observations/390367630'
+    }
+  ]
+};
+const inatRows = await fetchJsonApi({
+  fetchFn: stubFetch({ 'https://api.inaturalist.org/v1/observations?page=1': { body: JSON.stringify(inatBody) } }),
+  sourceName: 'inaturalist',
+  urlTemplate: 'https://api.inaturalist.org/v1/observations?page={page}',
+  mapItem: (obs) => {
+    const { latitude, longitude } = parseLoc(obs.location);
+    return {
+      sourceName: 'inaturalist',
+      sourceExternalId: `inat-${obs.id}`,
+      sourceUrl: obs.uri,
+      title: `การพบปลาหมอคางดำ (Sarotherodon melanotheron) — ${obs.place_guess}`,
+      province: provinceFromText(obs.place_guess),
+      latitude,
+      longitude,
+      publishedAt: obs.observed_on ? new Date(obs.observed_on) : null,
+      status: 'NEW',
+      rawMetadata: { via: 'iNaturalist API' }
+    };
+  },
+  maxPages: 1,
+  perPage: 200
+});
+check(inatRows.length === 2, `two iNaturalist rows mapped (got ${inatRows.length})`);
+check(inatRows[0].sourceExternalId === 'inat-391157436', 'iNaturalist external id deterministic');
+check(inatRows[0].province === 'ชลบุรี', 'Thai place_guess province extracted');
+check(inatRows[0].latitude === 12.776572807 && inatRows[0].longitude === 100.9024785497, 'coordinates parsed from source');
+check(inatRows[0].publishedAt.toISOString().startsWith('2026-08-14'), 'observed_on → publishedAt');
+check(inatRows[1].sourceExternalId === 'inat-390367630', 'second row mapped');
+
+function parseLoc(location) {
+  const [lat, lng] = String(location).split(',').map((part) => Number(part.trim()));
+  return { latitude: lat, longitude: lng };
+}
+
 // --- status aggregation -------------------------------------------------------
 console.log('ingestionStatus');
 check(ingestionStatus([]) === 'FAILED', 'zero sources → FAILED');
@@ -102,16 +201,19 @@ check(
   'all sources failed → FAILED'
 );
 
-// --- runIngestion: duplicate-safe + failure isolation -------------------------
-console.log('runIngestion');
-// Build fixture keys with the same encoding the source fetchers use, so the
-// stubs match the real request URLs regardless of encodeURIComponent details.
+// --- runIngestion: duplicate-safe + failure isolation over all 6 sources -------
+console.log('runIngestion (6 sources)');
 const newsQuery = encodeURIComponent('ปลาหมอคางดำ (ฉะเชิงเทรา OR ชลบุรี OR ระยอง)');
 const newsUrl = `https://news.google.com/rss/search?q=${newsQuery}&hl=th&gl=TH&ceid=TH:th`;
 const dgothTilapiaUrl = `https://data.go.th/api/3/action/package_search?q=${encodeURIComponent('tilapia')}&rows=10`;
 const dgothNileUrl = `https://data.go.th/api/3/action/package_search?q=${encodeURIComponent('ปลานิล')}&rows=10`;
+const inatUrl1 = 'https://api.inaturalist.org/v1/observations?taxon_id=230431&nelat=20.7&nelng=105.8&swlat=5.5&swlng=96.5&per_page=200&page=1&order=desc&order_by=observed_on';
+const inatUrl2 = inatUrl1.replace('page=1', 'page=2');
+const outletFeedXml = `<?xml version="1.0"?><rss version="2.0"><channel>
+<item><title>พบปลาหมอคางดำที่ชลบุรี</title><link>https://ex.com/outlet/1</link><guid>https://ex.com/outlet/1</guid><pubDate>Sun, 16 Aug 2026 02:00:00 GMT</pubDate></item>
+<item><title>ข่าวอื่น</title><link>https://ex.com/outlet/2</link><guid>https://ex.com/outlet/2</guid></item>
+</channel></rss>`;
 const sourcesMap = {
-  // stubFetch reads entry.body / entry.error — wrap bodies in objects.
   [newsUrl]: {
     body:
       '<?xml version="1.0"?><rss version="2.0"><channel><item><title>พบปลาหมอคางดำที่ชลบุรี</title><link>https://ex.com/1</link><guid>n-1</guid><pubDate>Sat, 16 Aug 2026 02:00:00 GMT</pubDate></item><item><title>ข่าวอื่น</title><link>https://ex.com/2</link><guid>n-2</guid></item></channel></rss>'
@@ -121,48 +223,63 @@ const sourcesMap = {
       success: true,
       result: {
         results: [
-          { id: 'd1', name: 'tilapia-dataset', title: 'ข้อมูลปลา tilapia &amp; นิล', notes: 'รายละเอียด', metadata_modified: '2026-08-10T00:00:00Z', resources: [] }
+          { id: 'd1', name: 'tilapia-dataset', title: 'ข้อมูลปลา tilapia & นิล', notes: 'รายละเอียด', metadata_modified: '2026-08-10T00:00:00Z', resources: [] }
         ]
       }
     })
   },
-  [dgothNileUrl]: { body: JSON.stringify({ success: true, result: { results: [] } }) }
+  [dgothNileUrl]: { body: JSON.stringify({ success: true, result: { results: [] } }) },
+  [inatUrl1]: {
+    body: JSON.stringify({
+      total_results: 1,
+      results: [
+        { id: 391157436, observed_on: '2026-08-14', place_guess: 'จ.ชลบุรี, TH', location: '12.776,100.902', quality_grade: 'needs_id', uri: 'https://www.inaturalist.org/observations/391157436' }
+      ]
+    })
+  },
+  [inatUrl2]: { body: JSON.stringify({ total_results: 1, results: [] }) },
+  'https://www.matichon.co.th/feed': { body: outletFeedXml },
+  'https://www.khaosod.co.th/feed': { body: outletFeedXml },
+  'https://www.prachachat.net/feed': { body: outletFeedXml }
 };
 
-// run 1: both sources succeed, 2 google + 1 data.go.th created
+// run 1: all sources succeed
 const prisma1 = fakePrisma();
 const result1 = await runIngestion({ prisma: prisma1, fetchFn: stubFetch(sourcesMap) });
 check(result1.status === 'SUCCEEDED', `first run SUCCEEDED (got ${result1.status})`);
-check(result1.totalCreated === 3, `first run created 3 (got ${result1.totalCreated})`);
+check(result1.totalCreated === 7, `first run created 7 (got ${result1.totalCreated})`);
 check(result1.totalSkipped === 0, `first run skipped 0 (got ${result1.totalSkipped})`);
 check(result1.failedSources === 0, 'first run no failed sources');
-check(result1.sources.length === 2, 'two source results');
+check(result1.sources.length === 6, `six source results (got ${result1.sources.length})`);
 const gnews = result1.sources.find((s) => s.sourceName === 'google-news-th');
 const dgoth = result1.sources.find((s) => s.sourceName === 'data.go.th');
+const inat = result1.sources.find((s) => s.sourceName === 'inaturalist');
+const matichon = result1.sources.find((s) => s.sourceName === 'matichon');
 check(gnews?.matched === 2 && gnews?.created === 2 && gnews?.ok === true, 'google-news-th result structured');
 check(dgoth?.matched === 1 && dgoth?.created === 1 && dgoth?.ok === true, 'data.go.th result structured');
+check(inat?.matched === 1 && inat?.created === 1 && inat?.ok === true, 'inaturalist result structured');
+check(matichon?.matched === 1 && matichon?.ok === true, 'matichon prefiltered to 1 relevant item');
+check(prisma1.__sources.size === 6, 'registry synced 6 DataSource rows');
 
 // run 2: identical → everything skipped, no duplicates
 const result2 = await runIngestion({ prisma: prisma1, fetchFn: stubFetch(sourcesMap) });
 check(result2.status === 'SUCCEEDED', `second run SUCCEEDED (got ${result2.status})`);
 check(result2.totalCreated === 0, `second run created 0 (got ${result2.totalCreated})`);
-check(result2.totalSkipped === 3, `second run skipped 3 (got ${result2.totalSkipped})`);
-check(prisma1.__rows.size === 3, 'no duplicate rows stored');
+check(result2.totalSkipped === 7, `second run skipped 7 (got ${result2.totalSkipped})`);
+check(prisma1.__rows.size === 7, 'no duplicate rows stored');
 
-// run 3: google-news-th fails, data.go.th succeeds → PARTIAL, data persisted
+// run 3: google-news-th fails, others succeed → PARTIAL, data persisted
 const failingMap = { ...sourcesMap };
-failingMap[newsUrl] = {
-  error: new Error('RSS 500')
-};
+failingMap[newsUrl] = { error: new Error('RSS 500') };
 const prisma3 = fakePrisma();
 const result3 = await runIngestion({ prisma: prisma3, fetchFn: stubFetch(failingMap) });
-check(result3.status === 'PARTIAL', `google fails + data ok → PARTIAL (got ${result3.status})`);
+check(result3.status === 'PARTIAL', `google fails + rest ok → PARTIAL (got ${result3.status})`);
 check(result3.failedSources === 1, 'one failed source counted');
-check(result3.totalCreated === 1, 'successful source still persisted');
+check(result3.totalCreated === 5, 'successful sources still persisted');
 const failedSource = result3.sources.find((s) => s.sourceName === 'google-news-th');
 check(failedSource?.ok === false && typeof failedSource.error === 'string', 'failed source records error string');
 
-// run 4: both sources fail → FAILED, nothing created
+// run 4: all sources fail → FAILED, nothing created
 const allFailing = {};
 for (const key of Object.keys(failingMap)) {
   allFailing[key] = { error: new Error('boom') };
@@ -170,7 +287,7 @@ for (const key of Object.keys(failingMap)) {
 const prisma4 = fakePrisma();
 const result4 = await runIngestion({ prisma: prisma4, fetchFn: stubFetch(allFailing) });
 check(result4.status === 'FAILED', `all sources fail → FAILED (got ${result4.status})`);
-check(result4.failedSources === 2, 'both sources failed');
+check(result4.failedSources === 6, 'all six sources failed');
 check(result4.totalCreated === 0, 'nothing created on total failure');
 
 // --- upsertObservations directly ---------------------------------------------
@@ -182,6 +299,16 @@ const second = await upsertObservations(prisma5, [{ sourceName: 's', sourceExter
 check(second.created === 0 && second.skipped === 1, 'duplicate upsert skips');
 const stored = prisma5.__rows.get('s|x');
 check(stored.title === 'เดิม', 'existing row never overwritten');
+
+// --- source registry sync -----------------------------------------------------
+console.log('syncSourceRegistry');
+const prisma6 = fakePrisma();
+const synced = await syncSourceRegistry(prisma6);
+check(synced === 6, `registry sync reports ${synced} sources`);
+const matichonRow = prisma6.__sources.get('matichon');
+check(matichonRow?.label === 'มติชน' && matichonRow?.transport === 'RSS', 'registry metadata persisted without fetch fn');
+const raw = JSON.stringify(matichonRow);
+check(!raw.includes('fetch') || !raw.includes('function'), 'fetch function never persisted to DB rows');
 
 // --- fetchGoogleNews / fetchDataGoTh with injected fetch ----------------------
 console.log('source fetchers (injected fetch)');

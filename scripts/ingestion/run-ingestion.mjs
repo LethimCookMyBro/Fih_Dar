@@ -12,6 +12,7 @@
 // by the pure `ingestionStatus()` helper so tests can pin the rules.
 
 import { SOURCE_DEFINITIONS } from './sources.mjs';
+import { syncSourceRegistry } from './registry.mjs';
 
 /** Skip rows already present under (sourceName, sourceExternalId); never overwrite. */
 export async function upsertObservations(prisma, observations, sourceLabel) {
@@ -54,6 +55,12 @@ export function ingestionStatus(sourceResults) {
 
 /** Run all configured sources; returns the aggregate result (never throws for a source failure). */
 export async function runIngestion({ prisma, fetchFn = fetch }) {
+  // Keep the DataSource metadata table in sync with the allowlisted code
+  // registry — the DB is display/health metadata only, never fetch config.
+  await syncSourceRegistry(prisma).catch(() => {
+    // Registry sync is best-effort; a metadata failure must not block data.
+  });
+
   const sourceResults = [];
   let totalCreated = 0;
   let totalSkipped = 0;

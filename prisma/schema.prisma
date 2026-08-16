@@ -209,6 +209,32 @@ model EventCandidateObservation {
   @@index([observationId])
 }
 
+/// Registry metadata for every trusted external source. The EXECUTABLE fetch
+/// behavior lives only in the allowlisted code registry (scripts/ingestion),
+/// never in these rows — so a compromised row can never make the worker fetch
+/// an arbitrary URL (no SSRF surface). This table carries display/health
+/// metadata and is kept in sync with the code registry on every ingestion run.
+model DataSource {
+  id               String   @id @default(uuid()) @db.Uuid
+  slug             String   @unique
+  label            String
+  category         String
+  transport        String // RSS | CKAN | JSON API
+  authorityType    String // news | government | citizen-science
+  trustTier        String   @default("trusted")
+  enabled          Boolean  @default(true)
+  displayOrder     Int      @default(0)
+  description      String?
+  homepage         String?
+  coverageMetadata Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([enabled])
+  @@index([category])
+  @@index([transport])
+}
+
 /// One execution of the refresh pipeline: source ingestion → intelligence
 /// processing. Created RUNNING by scripts/refresh-intelligence.mjs and
 /// finalized with a deterministic status; the JSON columns hold sanitized
