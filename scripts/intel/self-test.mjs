@@ -171,6 +171,37 @@ const dupes = findNearDuplicates([
 assert(dupes.has('b') && dupes.get('b').duplicateOfId === 'a', 'paraphrased duplicate linked to canonical (b→a)');
 assert(!dupes.has('c'), 'unrelated row not flagged');
 
+// --- dedupe: geographic veto for coordinate-bearing observations ---
+console.log('dedupe (geographic veto)');
+
+// Same templated title, far-apart coordinates (Krabi ~8.09,98.91 vs Bangkok ~13.76,100.50) -> MUST NOT dedupe
+const geoFar = findNearDuplicates([
+  { id: 'g1', title: 'การพบปลาหมอคางดำ (Sarotherodon melanotheron) — จังหวัดกระบี่', description: 'พบในแม่น้ำกระบี่', sourceUrl: 'https://inaturalist.org/1', latitude: 8.0863, longitude: 98.9063 },
+  { id: 'g2', title: 'การพบปลาหมอคางดำ (Sarotherodon melanotheron) — จังหวัดกรุงเทพมหานคร', description: 'พบในคลองบางกะปิ', sourceUrl: 'https://inaturalist.org/2', latitude: 13.7563, longitude: 100.5018 }
+]);
+assert(!geoFar.has('g2'), 'templated title with far-apart exact coords MUST NOT dedupe (Krabi→Bangkok ~650 km)');
+
+// Same templated title, near coordinates (same site) -> SHOULD dedupe
+const geoNear = findNearDuplicates([
+  { id: 'g3', title: 'การพบปลาหมอคางดำ (Sarotherodon melanotheron) — หาดพัทยา', description: 'พบที่ชายหาดพัทยา', sourceUrl: 'https://inaturalist.org/3', latitude: 12.9296, longitude: 100.8826 },
+  { id: 'g4', title: 'การพบปลาหมอคางดำ (Sarotherodon melanotheron) — ทะเลพัทยา', description: 'พบที่ทะเลพัทยา', sourceUrl: 'https://inaturalist.org/4', latitude: 12.9356, longitude: 100.8921 }
+]);
+assert(geoNear.has('g4') && geoNear.get('g4').duplicateOfId === 'g3', 'templated title with near exact coords SHOULD dedupe (Pattaya ~1 km)');
+
+// One has coords, other doesn't -> locality guard applies (no geographic veto)
+const geoMixed = findNearDuplicates([
+  { id: 'g5', title: 'ปลาหมอคางดำบุกหาดพัทยา', description: 'พบที่ชายหาดพัทยา', sourceUrl: 'https://news.example.com/1' },
+  { id: 'g6', title: 'ปลาหมอคางดำบุกหาดพัทยา', description: 'พบที่ชายหาดพัทยา', sourceUrl: 'https://news.example.com/2', latitude: 12.9296, longitude: 100.8826 }
+]);
+assert(geoMixed.has('g6') && geoMixed.get('g6').duplicateOfId === 'g5', 'mixed coords (one missing) with same locality + identical text SHOULD dedupe');
+
+// Neither has coords -> existing locality/text logic applies
+const geoNone = findNearDuplicates([
+  { id: 'g7', title: 'ปลาหมอคางดำบุกหาดพัทยา', description: 'พบที่ชายหาดพัทยา', sourceUrl: 'https://news.example.com/3' },
+  { id: 'g8', title: 'ปลาหมอคางดำบุกชายหาดบางแสน', description: 'พบที่ชายหาดบางแสน', sourceUrl: 'https://news.example.com/4' }
+]);
+assert(!geoNone.has('g8'), 'no coords: different locality names veto match (Pattaya vs Bangsaen)');
+
 // --- priority (EXPERIMENTAL MVP operational ranking) ------------------------
 console.log('priority');
 const NOW = new Date('2026-08-16T00:00:00Z');

@@ -47,6 +47,19 @@ export const EXPERIMENTAL_SEMANTIC_UNCERTAIN_UPGRADE = 0.75;
 // near-duplicate.
 export const EXPERIMENTAL_NEAR_DUPE_FUZZY_CONFIRM = 88;
 
+// Dedupe: maximum geographic distance (km) between two EXACT-coordinate
+// observations for them to be considered the same article. When BOTH
+// observations have exact coordinates and the distance exceeds this threshold,
+// the duplicate match is vetoed regardless of text similarity. This prevents
+// templated occurrence titles (e.g. iNaturalist "การพบปลาหมอคางดำ (Sarotherodon
+// melanotheron) — ...") from collapsing genuinely different real-world
+// occurrences at far-apart locations. EXPERIMENTAL/UNCALIBRATED — value is a
+// working guess based on the production defect (Krabi↔Bangkok ~650 km,
+// Phetchaburi↔Chanthaburi ~240 km were false merges; legitimate same-site
+// observations are typically <5 km apart). Do not present as scientifically
+// calibrated.
+export const EXPERIMENTAL_NEAR_DUPE_MAX_GEO_DISTANCE_KM = 50;
+
 // Non-threshold algorithmic constants (not calibrated — standard config for
 // the chosen libraries; kept here for visibility).
 export const MINHASH_NUM_PERM = 128; // MinHash signature length

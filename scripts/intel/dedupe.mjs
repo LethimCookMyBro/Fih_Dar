@@ -22,11 +22,44 @@ import { matchedLocality } from './locations.mjs';
 import {
   MINHASH_NUM_PERM as NUM_PERM,
   MINHASH_LSH_BAND_SIZE as BAND_SIZE,
-  EXPERIMENTAL_NEAR_DUPE_FUZZY_CONFIRM as FUZZY_CONFIRM
+  EXPERIMENTAL_NEAR_DUPE_FUZZY_CONFIRM as FUZZY_CONFIRM,
+  EXPERIMENTAL_NEAR_DUPE_MAX_GEO_DISTANCE_KM as MAX_GEO_DISTANCE_KM
 } from './thresholds.mjs';
 
 const require = createRequire(import.meta.url);
 const fuzzball = require('fuzzball');
+
+/**
+ * Calculate haversine distance between two coordinate pairs in kilometers.
+ * Returns null if either coordinate pair is invalid.
+ */
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  if (
+    lat1 === null || lat1 === undefined ||
+    lon1 === null || lon1 === undefined ||
+    lat2 === null || lat2 === undefined ||
+    lon2 === null || lon2 === undefined
+  ) {
+    return null;
+  }
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Check if an observation has valid exact coordinates.
+ */
+function hasExactCoordinates(obs) {
+  return obs.latitude !== null && obs.latitude !== undefined &&
+         obs.longitude !== null && obs.longitude !== undefined &&
+         !isNaN(obs.latitude) && !isNaN(obs.longitude);
+}
 
 export function canonicalSourceUrl(sourceUrl) {
   if (!sourceUrl) return '';
@@ -119,6 +152,21 @@ export function findNearDuplicates(observations) {
     const localityA = matchedLocality(a.title, a.description);
     const localityB = matchedLocality(bObs.title, bObs.description);
     if (localityA && localityB && localityA !== localityB) continue;
+
+    // Geographic veto: when BOTH observations have exact coordinates, check
+    // if they are too far apart to be the same article. This prevents
+    // templated occurrence titles (e.g. iNaturalist species occurrence
+    // templates) from collapsing genuinely different real-world occurrences
+    // at far-apart locations, even when text similarity is very high.
+    const hasCoordsA = hasExactCoordinates(a);
+    const hasCoordsB = hasExactCoordinates(bObs);
+    if (hasCoordsA && hasCoordsB) {
+      const distanceKm = haversineDistance(a.latitude, a.longitude, bObs.latitude, bObs.longitude);
+      if (distanceKm !== null && distanceKm > MAX_GEO_DISTANCE_KM) {
+        continue; // Too far apart to be the same article — veto the match
+      }
+    }
+
     const ratio = fuzzball.token_set_ratio(
       normalizeText(`${a.title} ${a.description ?? ''}`),
       normalizeText(`${bObs.title} ${bObs.description ?? ''}`)
