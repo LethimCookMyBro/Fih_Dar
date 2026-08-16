@@ -76,6 +76,38 @@ the storage module, not a missing file. Left unresolved because fixing it
 would mean restructuring the upload-storage path resolution for a
 non-blocking warning.
 
+## Scheduled ingestion job (`fihdar-ingestion-cron`)
+
+One Railway scheduled service in the **same project**, using the **same
+production Postgres**. It is the only scheduled job — there is no in-process
+scheduler in the web app and no always-on worker.
+
+| Setting | Value |
+|---|---|
+| Service name | `fihdar-ingestion-cron` |
+| Source | Same repository (local `railway up` deploys, like the web service) |
+| Dockerfile | `Dockerfile.cron` (CLI-only image, pruned to the pipeline's package closure) |
+| Start command | `npm run db:refresh:prod` |
+| Pre-deploy command | `npm run db:migrate` (applies migrations before the schedule arms — the cron never runs against an un-migrated schema) |
+| Cron schedule | `0 */6 * * *` (**UTC**) — approximately every 6 hours |
+| Public networking | **None** (no domain, no TCP proxy) |
+| `DATABASE_URL` | Railway reference `${{Postgres.DATABASE_URL}}` — same shared Postgres, never copied into source |
+| `FIHDAR_INGESTION_TRIGGER` | `scheduled` (records runs as `SCHEDULED`; local runs are `MANUAL`) |
+
+### Expected behavior
+
+- Each scheduled execution runs one refresh (ingest → intelligence → event
+  resolution), persists an `IngestionRun`, disconnects Prisma, and **exits**
+  with code 0 on success / non-zero on total failure.
+- The process never starts Next.js and never stays alive; Railway skips an
+  execution if the previous one is still active, so a clean exit is required
+  for the schedule to hold.
+- The web service is untouched by this job — its start command remains
+  `prisma migrate deploy && node server.js`.
+
+See `docs/INGESTION.md` for the pipeline, failure/duplicate behavior, and
+manual verification.
+
 ## Manual step this repository cannot automate
 
 Provisioning the actual Railway project (linking it to this repo, attaching

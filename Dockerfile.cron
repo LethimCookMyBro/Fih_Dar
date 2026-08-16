@@ -1,0 +1,71 @@
+# ============================================
+# FihDar scheduled ingestion job
+#
+# Short-lived CLI image for the Railway cron service (fihdar-ingestion-cron).
+# Unlike the web image (Dockerfile) this ships the full node_modules +
+# prisma/ + scripts/ so `npm run db:refresh:prod` (ingest + intelligence)
+# can run, and it exits when done — it never starts Next.js.
+#
+# No global Prisma: the locked project dependency (prisma@6.19.3, already in
+# package.json dependencies) is used via npx --no-install, so CLI version ==
+# @prisma/client version == package-lock version.
+# ============================================
+
+ARG NODE_VERSION=24-slim
+
+FROM node:${NODE_VERSION}
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# openssl keeps Prisma's query engine compatible with the slim runtime.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Package files first so the dependency layer caches across code changes.
+# --ignore-scripts skips the web postinstall (prisma generate + maplibre
+# worker copy) — the cron image has no web assets; generate runs explicitly
+# below. --omit=dev keeps the image to prod deps only.
+COPY package.json package-lock.json ./
+
+# Install + prune in ONE layer: npm ci brings in the full prod dependency
+# tree (the web app's packages — next, react, three, maplibre, gsap, …), then
+# the inline node script removes everything outside the cron pipeline's exact
+# package closure: @prisma/client, prisma (CLI), @huggingface/transformers
+# (embeddings, dynamically imported), sharp (required by transformers at
+# module load), fuzzball (relevance), minhash (dedupe/events),
+# thai-address-database (locations). Doing both in a single RUN keeps pruned
+# files out of every committed layer, so the image stays small instead of
+# carrying a ~7GB web dependency tree that only exists to be deleted in a
+# later layer. --ignore-scripts skips the web postinstall (prisma generate +
+# maplibre worker copy) — generate runs explicitly below.
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund && node -e "const fs=require('node:fs');const keep=new Set(['@prisma/client','prisma','@huggingface/transformers','sharp','fuzzball','minhash','thai-address-database']);let removed=0;for(const name of Object.keys(require('./package.json').dependencies)){if(keep.has(name))continue;fs.rmSync('./node_modules/'+name,{recursive:true,force:true});removed++;}console.log('pruned '+removed+' web-only packages');"
+
+# Prisma schema + migration history (needed for generate and migrate deploy).
+COPY prisma ./prisma
+
+# Generate the client against this image's OpenSSL target.
+RUN npx --no-install prisma generate
+
+# The refresh pipeline: ingest sources → intelligence → event resolution.
+# (scripts/ is the only app code the cron job needs; priority.mjs and the
+# intel pipeline are pure modules — no .data files are required to run.)
+COPY scripts ./scripts
+
+# The embedding/model cache and pipeline working files (.data/intel) are
+# written at runtime; give the non-root user an owned .data dir. (Chowning
+# /app wholesale would traverse node_modules — needlessly slow on Windows
+# Docker Desktop. Only .data is written at runtime.) A fresh cron container
+# may not preserve .data between executions — correctness does not depend on
+# it (the pipeline degrades to keyword-only relevance when the model is
+# absent).
+RUN mkdir -p /app/.data && chown -R node:node /app/.data
+
+# Run as non-root user.
+USER node
+
+# Railway overrides this with the service start command (npm run db:refresh:prod).
+CMD ["npm", "run", "db:refresh:prod"]
