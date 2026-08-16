@@ -20,15 +20,14 @@
     <path d="M -20 470 C 100 445, 150 495, 250 470 S 400 445, 520 470" />
   </g>
 
-  <!-- radar mark -->
-  <g transform="translate(200,180)">
-    <circle r="72" fill="none" stroke="#2a9d8f" stroke-width="1.5" opacity="0.35" />
-    <circle r="50" fill="none" stroke="#2a9d8f" stroke-width="1.5" opacity="0.5" />
-    <circle r="28" fill="none" stroke="#2a9d8f" stroke-width="1.5" opacity="0.7" />
-    <path d="M 0 0 L 0 -72 A 72 72 0 0 1 51 -51 Z" fill="url(#sweep)" opacity="0.55" />
-    <rect x="-30" y="-30" width="60" height="60" rx="16" fill="#2a9d8f" />
-    <path d="M -14 4 L -2 -12 L 8 -2 L 15 -14" stroke="#14181a" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-    <circle cx="15" cy="-14" r="3" fill="#14181a" />
+  <!-- FihDar mark: sonar ring + tapered sweep/fin blade -->
+  <g transform="translate(200,180) scale(6.5) translate(-16,-16)">
+    <circle cx="16" cy="16" r="11" fill="none" stroke="#2a9d8f" stroke-width="2.25" />
+    <path
+      d="M16 16 C15.4 9.6 18.2 6.4 23.07 7.57 C20.3 9.7 18 12.6 16 16 Z"
+      fill="#2a9d8f"
+    />
+    <circle cx="16" cy="16" r="1.8" fill="#2a9d8f" />
   </g>
 
   <text x="200" y="300" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="46" font-weight="700" letter-spacing="2" fill="#f5f7f7">FIHDAR</text>

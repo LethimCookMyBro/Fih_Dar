@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { Icons } from '@/components/icons';
+import { LogoMark } from '@/components/brand/logo-mark';
 import { AuthVisual } from './auth-visual';
 
 /**
@@ -27,7 +27,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             className='flex items-center gap-2.5 rounded-(--nav-radius) focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none lg:hidden'
           >
             <span className='bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-lg'>
-              <Icons.radar className='size-(--nav-icon)' aria-hidden />
+              <LogoMark className='size-(--nav-icon)' />
             </span>
             <span className='text-lg font-semibold tracking-tight'>FihDar</span>
           </Link>

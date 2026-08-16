@@ -4,7 +4,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
-import { Icons } from '@/components/icons';
+import { LogoMark } from '@/components/brand/logo-mark';
 import { CoordinateTicks, TopographicLines } from '@/components/visuals/geospatial-texture';
 import { TextLoop } from '@/components/visuals/text-loop';
 
@@ -39,7 +39,7 @@ export function AuthVisual() {
           className='flex size-(--brand-mark) items-center justify-center rounded-lg'
           style={{ backgroundColor: KEPPEL }}
         >
-          <Icons.radar className='size-(--nav-icon-lg) text-white' aria-hidden />
+          <LogoMark className='size-(--nav-icon-lg) text-white' />
         </span>
         <span className='text-xl font-semibold tracking-tight text-white'>FihDar</span>
       </Link>
@@ -115,16 +115,19 @@ function AuthBackground() {
           colorNum={5}
           pixelSize={2.5}
           enableMouseInteraction
-          mouseRadius={0.35}
+          mouseRadius={0.45}
           onContextLost={() => setContextLost(true)}
         />
       ) : (
         <StaticDitherGlow />
       )}
+      {/* pointer-events-none on every decorative layer below: without it, each one sits
+          in the hit-test path above the Dither canvas and silently eats mouse-move events
+          before they ever reach the WebGL element, killing the interaction entirely. */}
       {/* Restrained Eggplant interference, per the brand palette — the shader itself
           only carries one wave colour, so the second brand colour lives here instead. */}
       <div
-        className='absolute inset-0'
+        className='pointer-events-none absolute inset-0'
         style={{
           background: 'radial-gradient(38% 32% at 78% 74%, rgba(112,64,95,0.22), transparent 70%)'
         }}
@@ -133,14 +136,14 @@ function AuthBackground() {
       <CoordinateTicks />
       {/* Soft center illumination, above the field, below the vignette. */}
       <div
-        className='absolute inset-0'
+        className='pointer-events-none absolute inset-0'
         style={{
           background: 'radial-gradient(42% 38% at 50% 30%, rgba(42,157,143,0.14), transparent 72%)'
         }}
       />
       {/* Dark edge vignette so the field never competes with the brand mark or the ribbon. */}
       <div
-        className='absolute inset-0'
+        className='pointer-events-none absolute inset-0'
         style={{
           background: `radial-gradient(130% 100% at 50% 42%, transparent 38%, ${PANEL_BG} 94%)`
         }}

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 
-import { Icons } from '@/components/icons';
+import { LogoMark } from '@/components/brand/logo-mark';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -38,7 +38,7 @@ export function FihDarHeader() {
           className='flex h-11 items-center gap-2 rounded-(--nav-radius) pe-1 focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none md:hidden'
         >
           <span className='bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-lg'>
-            <Icons.radar className='size-(--nav-icon)' aria-hidden />
+            <LogoMark className='size-(--nav-icon)' />
           </span>
           <span className='text-base font-semibold tracking-tight'>FihDar</span>
         </Link>

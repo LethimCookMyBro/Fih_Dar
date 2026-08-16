@@ -8,7 +8,7 @@ export function TopographicLines({ opacity = 0.08 }: { opacity?: number }) {
   return (
     <svg
       viewBox='0 0 500 500'
-      className='absolute inset-0 size-full'
+      className='pointer-events-none absolute inset-0 size-full'
       style={{ opacity }}
       preserveAspectRatio='xMidYMid slice'
     >
@@ -41,7 +41,11 @@ export function CoordinateTicks({
   opacity?: number;
 }) {
   return (
-    <svg viewBox='0 0 500 500' className='absolute inset-0 size-full' style={{ opacity }}>
+    <svg
+      viewBox='0 0 500 500'
+      className='pointer-events-none absolute inset-0 size-full'
+      style={{ opacity }}
+    >
       {ticks.map(([x, y]) => (
         <g key={`${x}-${y}`} stroke='#ffffff' strokeWidth={1}>
           <line x1={x - 7} y1={y} x2={x + 7} y2={y} />

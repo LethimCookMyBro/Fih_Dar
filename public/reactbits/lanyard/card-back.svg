@@ -14,10 +14,13 @@
     <path d="M -20 400 C 100 375, 150 425, 250 400 S 400 375, 520 400" />
   </g>
 
-  <g transform="translate(200,270)">
-    <rect x="-26" y="-26" width="52" height="52" rx="14" fill="#2a9d8f" opacity="0.9" />
-    <path d="M -12 4 L -2 -10 L 7 -1 L 13 -12" stroke="#14181a" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-    <circle cx="13" cy="-12" r="2.6" fill="#14181a" />
+  <g transform="translate(200,270) scale(2.7) translate(-16,-16)">
+    <circle cx="16" cy="16" r="11" fill="none" stroke="#2a9d8f" stroke-width="2.25" />
+    <path
+      d="M16 16 C15.4 9.6 18.2 6.4 23.07 7.57 C20.3 9.7 18 12.6 16 16 Z"
+      fill="#2a9d8f"
+    />
+    <circle cx="16" cy="16" r="1.8" fill="#2a9d8f" />
   </g>
 
   <text x="200" y="336" text-anchor="middle" font-family="Arial, 'Segoe UI', system-ui, sans-serif" font-size="13" letter-spacing="5" fill="#8ecfc6">GEOSPATIAL INTELLIGENCE</text>

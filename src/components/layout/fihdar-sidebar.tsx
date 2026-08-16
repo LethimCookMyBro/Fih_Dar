@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useClerk, useUser } from '@clerk/nextjs';
 
 import { Icons } from '@/components/icons';
+import { LogoMark } from '@/components/brand/logo-mark';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Sidebar,
@@ -24,7 +25,7 @@ import { navGroups } from '@/config/nav-config';
 function BrandMark() {
   return (
     <div className='bg-primary text-primary-foreground flex size-(--brand-mark) shrink-0 items-center justify-center rounded-lg'>
-      <Icons.radar className='size-(--nav-icon-lg)' aria-hidden />
+      <LogoMark className='size-(--nav-icon-lg)' />
     </div>
   );
 }

@@ -50,6 +50,12 @@ export function AboutLanyard() {
           imageFit='cover'
           stripColor='#4b2142'
           gravity={[0, -32, 0]}
+          // Default camera position [0,0,30] centers the fixed rope anchor
+          // (world y=4) in frame. Panning the camera down to y=-3.4 pushes that
+          // anchor above the visible window, so what's on screen is the strap
+          // already descending — the "hangs from off-frame" look — instead of
+          // floating from a point in the middle of the canvas.
+          position={[0, -3.4, 30]}
           onContextLost={() => setContextLost(true)}
         />
       ) : (
@@ -59,13 +65,26 @@ export function AboutLanyard() {
   );
 }
 
-/** Motion-free stand-in: the same card art, gently tilted, no physics/WebGL at all. */
+/**
+ * Motion-free stand-in: the same card art, gently tilted, no physics/WebGL at all —
+ * shown for reduced motion, small phones, while the 3D chunk loads, or if the WebGL
+ * context is lost. Pinned near the container's top edge with a short CSS "strap" above
+ * it, not vertically centered, so it still reads as hanging from the top boundary even
+ * without the interactive version's camera framing (this container can be up to ~860px
+ * tall on desktop — a small centered card in that much empty space would read as
+ * "lost", not "hero object").
+ */
 function StaticLanyardCard() {
   return (
-    <div className='flex h-full w-full items-center justify-center'>
+    <div className='flex h-full w-full flex-col items-center pt-[5%]'>
       <div
-        className='relative aspect-[2/3] w-[62%] max-w-[280px] overflow-hidden rounded-2xl shadow-2xl'
-        style={{ transform: 'rotate(-4deg)' }}
+        aria-hidden
+        className='h-[6%] min-h-4 w-[3px] shrink-0 rounded-full lg:min-h-7'
+        style={{ background: 'linear-gradient(180deg, #70405f, #4b2142)' }}
+      />
+      <div
+        className='relative mt-[-1px] aspect-[2/3] w-[54%] max-w-[220px] shrink-0 overflow-hidden rounded-2xl shadow-2xl sm:max-w-[260px] lg:max-w-[340px]'
+        style={{ transform: 'rotate(-3deg)' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- static SVG badge art, not an optimizable photo */}
         <img src={CARD_FRONT} alt='บัตร FihDar' className='h-full w-full object-cover' />
