@@ -50,12 +50,17 @@ export function AboutLanyard() {
           imageFit='cover'
           stripColor='#4b2142'
           gravity={[0, -32, 0]}
-          // Default camera position [0,0,30] centers the fixed rope anchor
-          // (world y=4) in frame. Panning the camera down to y=-3.4 pushes that
-          // anchor above the visible window, so what's on screen is the strap
-          // already descending — the "hangs from off-frame" look — instead of
-          // floating from a point in the middle of the canvas.
-          position={[0, -3.4, 30]}
+          // Default camera (z=30, fov=20) frames a ~10.6-unit-tall window — huge
+          // relative to the card, which is why the stock demo reads as a small
+          // badge no matter how big its CSS container is (world-space framing,
+          // not container size, controls how large the card renders). Moving the
+          // camera to z=17 roughly halves that window so the card actually fills
+          // the frame. The y offset then places the window so its top edge sits
+          // just below the fixed rope anchor (world y=4) — the anchor itself
+          // stays just out of frame, so what's visible is the strap already
+          // descending from the top edge, with headroom below for the card and
+          // its swing.
+          position={[0, 0.85, 17]}
           onContextLost={() => setContextLost(true)}
         />
       ) : (
