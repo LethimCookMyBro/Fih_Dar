@@ -10,12 +10,14 @@ import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { publicReportsQueryOptions } from '@/features/reports/api/queries';
-import type { Report } from '@/features/reports/api/types';
+import { REPORT_PROVINCES, type Report } from '@/features/reports/api/types';
 import { publicObservationsQueryOptions } from '@/features/observations/api/queries';
+import type { ExternalObservation } from '@/features/observations/api/types';
 import { PriorityPanel } from '@/features/priority/components/priority-panel';
 import { priorityAreasQueryOptions } from '@/features/priority/api/queries';
 import type { PriorityArea } from '@/features/priority/api/types';
 import { INITIAL_VIEW, MAP_STYLE_URL, type QuickPlace } from '@/features/map/constants';
+import { matchesMapFilters, type MapFilters } from '@/features/map/lib/filters';
 import {
   CLUSTER_COUNT_LAYER,
   CLUSTER_LAYER,
@@ -40,7 +42,7 @@ import {
 } from '@/features/map/lib/report-layers';
 import { loadMapLibre } from '@/features/map/lib/load-maplibre';
 import { applyWaterwayEmphasis, setWaterwayVisibility } from '@/features/map/lib/waterways';
-import { MapControls, MapLegend, type MapFilters, type MapLayerToggles } from './map-controls';
+import { MapControls, MapLegend, type MapLayerToggles } from './map-controls';
 import { ReportPanel } from './report-panel';
 import { EventPanel } from './event-panel';
 
@@ -53,14 +55,22 @@ const EVENT_LAYERS = [
 ];
 
 function filterReports(reports: Report[], filters: MapFilters): Report[] {
-  const cutoff =
-    filters.days === 'all' ? null : Date.now() - Number(filters.days) * 24 * 60 * 60 * 1000;
+  return reports.filter((report) => matchesMapFilters(filters, report.province, report.observedAt));
+}
 
-  return reports.filter((report) => {
-    if (filters.province !== 'all' && report.province !== filters.province) return false;
-    if (cutoff !== null && new Date(report.observedAt).getTime() < cutoff) return false;
-    return true;
-  });
+function filterEventAreas(areas: PriorityArea[], filters: MapFilters): PriorityArea[] {
+  return areas.filter((area) =>
+    matchesMapFilters(filters, area.province, area.eventDate ?? area.mostRecentPublishedAt)
+  );
+}
+
+function filterObservations(
+  observations: ExternalObservation[],
+  filters: MapFilters
+): ExternalObservation[] {
+  return observations.filter((observation) =>
+    matchesMapFilters(filters, observation.province, observation.publishedAt)
+  );
 }
 
 export function MapView() {
@@ -85,19 +95,37 @@ export function MapView() {
   const { data, isPending, isError, refetch, isFetching } = useQuery(publicReportsQueryOptions());
   const reports = React.useMemo(() => filterReports(data?.reports ?? [], filters), [data, filters]);
   const { data: observationData } = useQuery(publicObservationsQueryOptions());
+  const observations = React.useMemo(
+    () => filterObservations(observationData?.observations ?? [], filters),
+    [observationData, filters]
+  );
   const placedObservations = React.useMemo(
     () =>
-      (observationData?.observations ?? []).filter(
+      observations.filter(
         (observation) => observation.latitude !== null && observation.longitude !== null
       ),
-    [observationData]
+    [observations]
   );
   const { data: priorityData } = useQuery(priorityAreasQueryOptions());
-  const eventAreas = React.useMemo(() => priorityData?.areas ?? [], [priorityData]);
+  const eventAreas = React.useMemo(
+    () => filterEventAreas(priorityData?.areas ?? [], filters),
+    [priorityData, filters]
+  );
   const placedEventAreas = React.useMemo(
     () => eventAreas.filter((area) => area.coordinate !== null),
     [eventAreas]
   );
+  // Every province that could ever appear on the map, not just the three
+  // EEC provinces citizen reports are restricted to — events/observations
+  // come from a nationwide ingestion pipeline and can land anywhere.
+  const provinceOptions = React.useMemo(() => {
+    const provinces = new Set<string>(REPORT_PROVINCES);
+    for (const report of data?.reports ?? []) provinces.add(report.province);
+    for (const area of priorityData?.areas ?? []) if (area.province) provinces.add(area.province);
+    for (const observation of observationData?.observations ?? [])
+      if (observation.province) provinces.add(observation.province);
+    return Array.from(provinces).toSorted((a, b) => a.localeCompare(b, 'th'));
+  }, [data, priorityData, observationData]);
   const selected = reports.find((report) => report.id === selectedId) ?? null;
   const selectedEvent = eventAreas.find((area) => area.slug === selectedEventSlug) ?? null;
 
@@ -387,6 +415,7 @@ export function MapView() {
           <MapControls
             filters={filters}
             onFiltersChange={setFilters}
+            provinceOptions={provinceOptions}
             layers={layers}
             onLayersChange={setLayers}
             onNavigate={navigateTo}
@@ -399,7 +428,7 @@ export function MapView() {
             observationCount={placedObservations.length}
             observationsVisible={layers.observations}
           />
-          <PriorityPanel onFly={flyToPriorityArea} />
+          <PriorityPanel filters={filters} onFly={flyToPriorityArea} />
           <ReportPanel report={selected} onClose={() => setSelectedId(null)} />
           <EventPanel event={selectedEvent} onClose={() => setSelectedEventSlug(null)} />
         </>

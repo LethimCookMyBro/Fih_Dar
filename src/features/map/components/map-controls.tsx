@@ -18,13 +18,10 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { REPORT_PROVINCES } from '@/features/reports/api/types';
 import { QUICK_PLACES, type QuickPlace } from '@/features/map/constants';
+import type { MapFilters } from '@/features/map/lib/filters';
 
-export interface MapFilters {
-  province: string;
-  days: string;
-}
+export type { MapFilters };
 
 export interface MapLayerToggles {
   events: boolean;
@@ -62,6 +59,7 @@ const FLOATING_SURFACE = 'border border-border bg-background shadow-sm dark:bg-b
 interface MapControlsProps {
   filters: MapFilters;
   onFiltersChange: (filters: MapFilters) => void;
+  provinceOptions: string[];
   layers: MapLayerToggles;
   onLayersChange: (layers: MapLayerToggles) => void;
   onNavigate: (place: QuickPlace) => void;
@@ -120,8 +118,11 @@ function LayerToggles({
 function FilterFields({
   filters,
   onFiltersChange,
+  provinceOptions,
   className
-}: Pick<MapControlsProps, 'filters' | 'onFiltersChange'> & { className?: string }) {
+}: Pick<MapControlsProps, 'filters' | 'onFiltersChange' | 'provinceOptions'> & {
+  className?: string;
+}) {
   return (
     <div className={className}>
       <Select
@@ -146,7 +147,7 @@ function FilterFields({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value='all'>ทุกจังหวัด</SelectItem>
-          {REPORT_PROVINCES.map((province) => (
+          {provinceOptions.map((province) => (
             <SelectItem key={province} value={province}>
               {province}
             </SelectItem>
@@ -184,6 +185,7 @@ function FilterFields({
 export function MapControls({
   filters,
   onFiltersChange,
+  provinceOptions,
   layers,
   onLayersChange,
   onNavigate
@@ -247,6 +249,7 @@ export function MapControls({
               <FilterFields
                 filters={filters}
                 onFiltersChange={onFiltersChange}
+                provinceOptions={provinceOptions}
                 className='flex flex-col gap-3'
               />
               <div>
@@ -292,6 +295,7 @@ export function MapControls({
         <FilterFields
           filters={filters}
           onFiltersChange={onFiltersChange}
+          provinceOptions={provinceOptions}
           className='flex items-center gap-2'
         />
 

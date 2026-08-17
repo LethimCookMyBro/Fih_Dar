@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { priorityAreasQueryOptions } from '@/features/priority/api/queries';
 import type { PriorityArea } from '@/features/priority/api/types';
+import { matchesMapFilters, type MapFilters } from '@/features/map/lib/filters';
 
 const FLOATING_SURFACE = 'border border-border bg-background shadow-sm dark:bg-background';
 
@@ -125,11 +126,21 @@ function AreaCard({ area, onFly }: { area: PriorityArea; onFly: (area: PriorityA
   );
 }
 
-export function PriorityPanel({ onFly }: { onFly: (area: PriorityArea) => void }) {
+export function PriorityPanel({
+  filters,
+  onFly
+}: {
+  filters: MapFilters;
+  onFly: (area: PriorityArea) => void;
+}) {
   const [open, setOpen] = React.useState(false);
   const reduceMotion = useReducedMotion();
   const { data, isPending, isError } = useQuery(priorityAreasQueryOptions());
-  const areas = data?.areas ?? [];
+  const allAreas = data?.areas ?? [];
+  const areas = allAreas.filter((area) =>
+    matchesMapFilters(filters, area.province, area.eventDate ?? area.mostRecentPublishedAt)
+  );
+  const hiddenByFilter = allAreas.length > 0 && areas.length === 0;
 
   return (
     <>
@@ -201,7 +212,9 @@ export function PriorityPanel({ onFly }: { onFly: (area: PriorityArea) => void }
               )}
               {!isPending && !isError && areas.length === 0 && (
                 <p className='text-muted-foreground text-[0.8125rem]'>
-                  ยังไม่มีเหตุการณ์ที่ผ่านการประมวลผลข่าวกรองในระบบ
+                  {hiddenByFilter
+                    ? 'ไม่มีเหตุการณ์ตรงกับตัวกรองที่เลือก ลองขยายช่วงเวลาหรือเลือกทุกจังหวัด'
+                    : 'ยังไม่มีเหตุการณ์ที่ผ่านการประมวลผลข่าวกรองในระบบ'}
                 </p>
               )}
               <ul className='space-y-2'>

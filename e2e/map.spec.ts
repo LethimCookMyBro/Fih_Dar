@@ -199,6 +199,89 @@ test.describe('/map — event detail panel', () => {
   });
 });
 
+test.describe('/map — province filter', () => {
+  test('the province list is not hardcoded to only the three EEC provinces', async ({ page }) => {
+    await page.goto('/map');
+    await waitForMapReady(page);
+
+    if ((page.viewportSize()?.width ?? 1280) < 768) {
+      await page.getByRole('button', { name: 'ตัวกรอง' }).click();
+    }
+    const provinceSelect = page.locator('[aria-label="กรองตามจังหวัด"]:visible');
+    await provinceSelect.click();
+
+    // Regression: this dropdown used to reuse REPORT_PROVINCES (the citizen
+    // report submission enum, correctly EEC-only), which silently hid any
+    // event/observation province the nationwide ingestion pipeline produces.
+    // "ทุกจังหวัด" + at least the 3 EEC provinces must always be present.
+    const optionCount = await page.getByRole('option').count();
+    expect(optionCount).toBeGreaterThanOrEqual(4);
+    for (const province of ['ทุกจังหวัด', 'ฉะเชิงเทรา', 'ชลบุรี', 'ระยอง']) {
+      await expect(page.getByRole('option', { name: province })).toBeVisible();
+    }
+    await page.keyboard.press('Escape');
+  });
+
+  test('selecting a province filters citizen reports and clearing restores them', async ({
+    page
+  }) => {
+    await page.goto('/map');
+    await waitForMapReady(page);
+
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    // Below md the legend starts collapsed; from md up it is open by
+    // default. Either way it stays open independently of the filter sheet
+    // opening/closing on top of it.
+    if (isMobile) {
+      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    }
+
+    const reportLine = page.getByText(/^แสดง \d+ รายงานจากประชาชน$/);
+    await expect(reportLine).toBeVisible();
+    const initialCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
+
+    if (isMobile) await page.getByRole('button', { name: 'ตัวกรอง' }).click();
+    await page.locator('[aria-label="กรองตามจังหวัด"]:visible').click();
+    await page.getByRole('option', { name: 'ชลบุรี' }).click();
+    if (isMobile) await page.keyboard.press('Escape');
+
+    const filteredCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
+    expect(filteredCount).toBeLessThanOrEqual(initialCount);
+
+    // Clear back to "ทุกจังหวัด" — the count must return to its original value.
+    if (isMobile) await page.getByRole('button', { name: 'ตัวกรอง' }).click();
+    await page.locator('[aria-label="กรองตามจังหวัด"]:visible').click();
+    await page.getByRole('option', { name: 'ทุกจังหวัด' }).click();
+    if (isMobile) await page.keyboard.press('Escape');
+
+    await expect(reportLine).toHaveText(`แสดง ${initialCount} รายงานจากประชาชน`);
+  });
+
+  test('province filter also narrows the priority panel, not just citizen reports', async ({
+    page
+  }) => {
+    await page.goto('/map');
+    await waitForMapReady(page);
+
+    await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
+    const dialog = page.getByRole('dialog', { name: /อันดับพื้นที่/ });
+    await expect(dialog).toBeVisible();
+    const initialCount = await dialog.locator('li').count();
+    await page.getByRole('button', { name: 'ปิด', exact: true }).click();
+
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    if (isMobile) await page.getByRole('button', { name: 'ตัวกรอง' }).click();
+    await page.locator('[aria-label="กรองตามจังหวัด"]:visible').click();
+    await page.getByRole('option', { name: 'ชลบุรี' }).click();
+    if (isMobile) await page.keyboard.press('Escape');
+
+    await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
+    await expect(dialog).toBeVisible();
+    const filteredCount = await dialog.locator('li').count();
+    expect(filteredCount).toBeLessThanOrEqual(initialCount);
+  });
+});
+
 test.describe('/map — read-only APIs', () => {
   test('public observations endpoint excludes nothing beyond documented shape', async ({
     request
