@@ -45,9 +45,12 @@ function sanitizeSourceResults(sources) {
 }
 
 async function main() {
-  console.log('[refresh] main() started, reprocessAll:', process.argv.includes('--all') || process.env.REPROCESS_ALL === 'true');
+  console.log('[refresh] main() started');
+  console.log('[refresh] process.env.REPROCESS_ALL =', process.env.REPROCESS_ALL);
+  console.log('[refresh] process.argv =', process.argv);
   const trigger = triggerFromEnv();
   const reprocessAll = process.argv.includes('--all') || process.env.REPROCESS_ALL === 'true';
+  console.log('[refresh] reprocessAll =', reprocessAll);
   console.log('[refresh] creating ingestion run...');
   const run = await prisma.ingestionRun.create({
     data: { trigger, status: 'RUNNING' }
