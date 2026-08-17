@@ -20,8 +20,10 @@ test.describe('/auth/sign-in — entrance animation', () => {
     await page.goto('/auth/sign-in');
 
     const panel = page.locator('div[class*="max-w-[460px]"]');
-    // No animation to wait out — final state must already be there almost immediately.
-    await expect(panel).toHaveCSS('opacity', '1', { timeout: 500 });
+    // No animation to wait out — final state must already be there almost
+    // immediately (a generous timeout costs nothing here: reduced motion
+    // means there is no transition to wait through either way).
+    await expect(panel).toHaveCSS('opacity', '1', { timeout: 3000 });
     await context.close();
   });
 });

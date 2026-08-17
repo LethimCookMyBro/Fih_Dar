@@ -1,5 +1,16 @@
-/* FihDar — Keppel (#2A9D8F) operational, Eggplant (#4B2142) brand accent,
-   Lava Gray neutral system. Roughly 70% neutral / 20% keppel / 10% eggplant. */
+/* FihDar — Keppel operational, Eggplant (#4B2142) brand accent, Lava Gray
+   neutral system. Roughly 70% neutral / 20% keppel / 10% eggplant.
+
+   Light-mode --primary is #217D72, not the nominal Keppel #2A9D8F: white
+   text on #2A9D8F measures 3.32:1, below WCAG AA's 4.5:1 for normal-size
+   text, and the same pair backs every primary button and link in the app.
+   #217D72 keeps the same hue/saturation (172.7°, 58%), just ~8 points
+   darker — 4.95:1 with white text, 4.60:1 as link text on the card
+   background. Dark mode is untouched (#35B6A6 paired with near-black
+   --primary-foreground already measures 7.65:1+). Map markers/canvas
+   drawing use their own local KEPPEL constants (report-layers.ts,
+   waterways.ts, map-controls.tsx) and are intentionally NOT tied to this
+   token — those are data-encoded fills, not text, and untouched by this. */
 
 [data-theme='fihdar'] {
   --background: #f5f7f7;
@@ -8,7 +19,7 @@
   --card-foreground: #202426;
   --popover: #ffffff;
   --popover-foreground: #202426;
-  --primary: #2a9d8f;
+  --primary: #217d72;
   --primary-foreground: #ffffff;
   --secondary: #e9eded;
   --secondary-foreground: #202426;
@@ -20,7 +31,7 @@
   --destructive-foreground: #ffffff;
   --border: #d8dedf;
   --input: #d8dedf;
-  --ring: #2a9d8f;
+  --ring: #217d72;
 
   /* Brand accent — used deliberately, not as a surface colour. */
   --brand: #4b2142;
@@ -28,10 +39,10 @@
 
   /* Report status — always paired with an icon/label, never colour alone. */
   --status-pending: #b26b00;
-  --status-verified: #2a9d8f;
+  --status-verified: #217d72;
   --status-rejected: #a13d31;
 
-  --chart-1: #2a9d8f;
+  --chart-1: #217d72;
   --chart-2: #4b2142;
   --chart-3: #70797d;
   --chart-4: #8ecfc6;
@@ -39,12 +50,12 @@
 
   --sidebar: #ffffff;
   --sidebar-foreground: #4f575a;
-  --sidebar-primary: #2a9d8f;
+  --sidebar-primary: #217d72;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #edf0f0;
   --sidebar-accent-foreground: #202426;
   --sidebar-border: #e4e9e9;
-  --sidebar-ring: #2a9d8f;
+  --sidebar-ring: #217d72;
 
   --font-sans: var(--font-noto-thai), var(--font-inter), system-ui, sans-serif;
   --font-serif: Georgia, serif;
