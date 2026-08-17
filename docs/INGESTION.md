@@ -15,7 +15,7 @@ or citizen-science API. There is no HTML anti-bot scraping.
 | Source | Transport | What it provides |
 |---|---|---|
 | `google-news-th` | Google News RSS | Thai-language news mentioning Blackchin Tilapia in the EEC provinces |
-| `data.go.th` | CKAN API (open government data portal) | Public datasets matching tilapia / ปลานิล on data.go.th |
+| `data.go.th` | CKAN API (open government data portal) | Public datasets matching tilapia / ปลานิล / ปลาหมอคางดำ on data.go.th — see [Known constraints](#known-constraints) |
 | `inaturalist` | JSON API | Citizen-science occurrence observations of *Sarotherodon melanotheron* in Thailand, with observer-supplied coordinates |
 | `matichon` | RSS | มติชน news feed |
 | `khaosod` | RSS | ข่าวสด news feed |
@@ -128,3 +128,15 @@ matched`, status `SUCCEEDED` — proof of duplicate safety.
   pipeline degrades to keyword-only relevance by design; correctness does not
   depend on the cache. If repeated model download becomes a measurable cost,
   that is a documented optimization, not a bug.
+- `data.go.th` is technically healthy (fetch/parse/upsert succeed) but has
+  produced no relevant signal in practice. Its catalog has no invasive
+  Blackchin Tilapia dataset — querying the actual species name
+  (`ปลาหมอคางดำ` / `หมอคางดำ` / `blackchin tilapia`) returns zero results;
+  what the catalog does have is generic Nile tilapia aquaculture-economics
+  data (farm counts, harvest volumes, prices), a different species tracked
+  for agricultural statistics, not ecological surveillance. The source stays
+  connected — it is free, safe, and could surface a real dataset later — but
+  do not expect it to be a meaningful signal source. This is exactly the
+  source-health-vs-signal-yield distinction `signalCaption()` in
+  `src/features/sources/lib/format.ts` exists to represent honestly rather
+  than collapsing into one status.

@@ -213,13 +213,17 @@ export const SOURCE_REGISTRY = [
     displayOrder: 20,
     homepage: 'https://data.go.th',
     description:
-      'ชุดข้อมูลเปิดของภาครัฐที่เผยแพร่ผ่านพอร์ทัลข้อมูลเปิด data.go.th (CKAN API) — ค้นหาชุดข้อมูลที่เกี่ยวกับ tilapia และปลานิล',
+      'ชุดข้อมูลเปิดของภาครัฐที่เผยแพร่ผ่านพอร์ทัลข้อมูลเปิด data.go.th (CKAN API) — ค้นหาชุดข้อมูลที่เกี่ยวกับปลาหมอคางดำและปลานิล',
     enabled: true,
     fetch: (fetchFn = fetch) =>
       fetchCkanPackages({
         fetchFn,
         baseUrl: 'https://data.go.th',
-        queries: ['tilapia', 'ปลานิล'],
+        // ponytail: 'ปลาหมอคางดำ'/'หมอคางดำ'/'blackchin tilapia' (the actual invasive
+        // species) currently return 0 CKAN results — the catalog only has generic Nile
+        // tilapia aquaculture-economics datasets — but they're the honest query terms
+        // for what this source is meant to surveil, so they stay even at zero yield.
+        queries: ['tilapia', 'ปลานิล', 'ปลาหมอคางดำ', 'หมอคางดำ', 'blackchin tilapia'],
         rows: 10,
         sourceName: 'data.go.th',
         datasetUrlPrefix: 'https://data.go.th/dataset'

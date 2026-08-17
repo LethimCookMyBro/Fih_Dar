@@ -207,6 +207,9 @@ const newsQuery = encodeURIComponent('ปลาหมอคางดำ (ฉะ�
 const newsUrl = `https://news.google.com/rss/search?q=${newsQuery}&hl=th&gl=TH&ceid=TH:th`;
 const dgothTilapiaUrl = `https://data.go.th/api/3/action/package_search?q=${encodeURIComponent('tilapia')}&rows=10`;
 const dgothNileUrl = `https://data.go.th/api/3/action/package_search?q=${encodeURIComponent('ปลานิล')}&rows=10`;
+const dgothBlackchinThaiUrl = `https://data.go.th/api/3/action/package_search?q=${encodeURIComponent('ปลาหมอคางดำ')}&rows=10`;
+const dgothBlackchinShortUrl = `https://data.go.th/api/3/action/package_search?q=${encodeURIComponent('หมอคางดำ')}&rows=10`;
+const dgothBlackchinEnUrl = `https://data.go.th/api/3/action/package_search?q=${encodeURIComponent('blackchin tilapia')}&rows=10`;
 const inatUrl1 = 'https://api.inaturalist.org/v1/observations?taxon_id=230431&nelat=20.7&nelng=105.8&swlat=5.5&swlng=96.5&per_page=200&page=1&order=desc&order_by=observed_on';
 const inatUrl2 = inatUrl1.replace('page=1', 'page=2');
 const outletFeedXml = `<?xml version="1.0"?><rss version="2.0"><channel>
@@ -229,6 +232,12 @@ const sourcesMap = {
     })
   },
   [dgothNileUrl]: { body: JSON.stringify({ success: true, result: { results: [] } }) },
+  // Mirrors production reality: the actual invasive-species terms return 0 CKAN
+  // results (see registry.mjs's data.go.th query list) — the catalog only has
+  // generic Nile-tilapia aquaculture-economics datasets.
+  [dgothBlackchinThaiUrl]: { body: JSON.stringify({ success: true, result: { results: [] } }) },
+  [dgothBlackchinShortUrl]: { body: JSON.stringify({ success: true, result: { results: [] } }) },
+  [dgothBlackchinEnUrl]: { body: JSON.stringify({ success: true, result: { results: [] } }) },
   [inatUrl1]: {
     body: JSON.stringify({
       total_results: 1,
