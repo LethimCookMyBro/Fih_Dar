@@ -22,9 +22,16 @@ const publicObservationSelect = {
  *
  * Only coordinate-bearing rows are useful to the map; the API returns all rows
  * and lets the client decide, so province-only mentions remain available.
+ *
+ * Excludes rows the intelligence pipeline has explicitly classified
+ * IRRELEVANT, and near-duplicates (kept pointing at their canonical row) —
+ * the map's external-source layer should show distinct, plausible signals,
+ * never a marker the pipeline itself has already flagged as noise or a
+ * repeat of another marker.
  */
 export async function listPublicObservations() {
   const observations = await prisma.externalObservation.findMany({
+    where: { relevanceVerdict: { not: 'IRRELEVANT' }, duplicateOfId: null },
     orderBy: [{ publishedAt: 'desc' }, { scrapedAt: 'desc' }],
     take: 200,
     select: publicObservationSelect

@@ -174,7 +174,8 @@ export function PriorityPanel({ onFly }: { onFly: (area: PriorityArea) => void }
                   <span className='bg-brand/10 text-brand rounded-full px-1.5 py-0.5 font-medium'>
                     ทดลอง (MVP)
                   </span>{' '}
-                  จัดอันดับจากหลักฐานรายงานที่ผ่านการตรวจสอบเท่านั้น
+                  จัดอันดับจากเหตุการณ์ที่เชื่อมโยงจากข่าว/ข้อมูลภายนอกที่ผ่านการประมวลผลข่าวกรองเท่านั้น —
+                  ไม่รวมรายงานจากประชาชน
                 </p>
               </div>
               <Button

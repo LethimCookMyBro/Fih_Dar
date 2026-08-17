@@ -43,13 +43,19 @@ type HealthSnapshot = {
   } | null;
   counts: Map<string, number>;
   lastCreated: Map<string, Date | null>;
+  relevantCounts: Map<string, number>;
 };
 
 async function healthSnapshot(): Promise<HealthSnapshot> {
-  const [latestRun, observationCounts, lastCreatedBySource] = await Promise.all([
+  const [latestRun, observationCounts, lastCreatedBySource, relevantCounts] = await Promise.all([
     prisma.ingestionRun.findFirst({ orderBy: { startedAt: 'desc' } }),
     prisma.externalObservation.groupBy({ by: ['sourceName'], _count: { _all: true } }),
-    prisma.externalObservation.groupBy({ by: ['sourceName'], _max: { createdAt: true } })
+    prisma.externalObservation.groupBy({ by: ['sourceName'], _max: { createdAt: true } }),
+    prisma.externalObservation.groupBy({
+      by: ['sourceName'],
+      where: { relevanceVerdict: 'RELEVANT' },
+      _count: { _all: true }
+    })
   ]);
   return {
     latestRun: latestRun
@@ -61,10 +67,19 @@ async function healthSnapshot(): Promise<HealthSnapshot> {
         }
       : null,
     counts: new Map(observationCounts.map((item) => [item.sourceName, item._count._all])),
-    lastCreated: new Map(lastCreatedBySource.map((item) => [item.sourceName, item._max.createdAt]))
+    lastCreated: new Map(lastCreatedBySource.map((item) => [item.sourceName, item._max.createdAt])),
+    relevantCounts: new Map(relevantCounts.map((item) => [item.sourceName, item._count._all]))
   };
 }
 
+/**
+ * `status` is TECHNICAL health only — did the latest run's fetch/parse/upsert
+ * succeed for this source. It says nothing about whether that fetch actually
+ * surfaced a usable FihDar signal, which is why it is reported separately
+ * from `relevantObservations` / `lastRunMatched` / `lastRunCreated`. A source
+ * can be technically OK forever while never producing a single relevant
+ * observation — the UI must show both, never collapse them into one pill.
+ */
 function healthForSource(
   slug: string,
   snapshot: HealthSnapshot
@@ -73,6 +88,9 @@ function healthForSource(
   lastCheckedAt: string | null;
   lastNewObservationAt: string | null;
   totalObservations: number;
+  relevantObservations: number;
+  lastRunMatched: number | null;
+  lastRunCreated: number | null;
 } {
   const sourceResult =
     snapshot.latestRun?.sourceResults.find((result) => result.sourceName === slug) ?? null;
@@ -84,7 +102,10 @@ function healthForSource(
     status,
     lastCheckedAt: snapshot.latestRun?.finishedAt?.toISOString() ?? null,
     lastNewObservationAt: snapshot.lastCreated.get(slug)?.toISOString() ?? null,
-    totalObservations: snapshot.counts.get(slug) ?? 0
+    totalObservations: snapshot.counts.get(slug) ?? 0,
+    relevantObservations: snapshot.relevantCounts.get(slug) ?? 0,
+    lastRunMatched: sourceResult?.matched ?? null,
+    lastRunCreated: sourceResult?.created ?? null
   };
 }
 

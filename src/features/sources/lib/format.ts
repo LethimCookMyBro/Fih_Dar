@@ -56,3 +56,23 @@ export const PRECISION_LABELS: Record<string, string> = {
   PROVINCE: 'จังหวัด',
   UNKNOWN: 'ยังไม่ระบุ'
 };
+
+/**
+ * Truthful data-signal caption, separate from the technical connection pill.
+ * `status: 'OK'` only means the latest fetch/parse/upsert succeeded — it says
+ * nothing about whether that source has ever produced a usable FihDar signal.
+ * Returns null when the technical status itself already explains the state
+ * (DEGRADED / UNKNOWN), so the caption never repeats or contradicts the pill.
+ */
+export function signalCaption(source: {
+  status: string;
+  totalObservations: number;
+  relevantObservations: number;
+  lastRunCreated: number | null;
+}): string | null {
+  if (source.status !== 'OK') return null;
+  if (source.relevantObservations > 0) {
+    return (source.lastRunCreated ?? 0) > 0 ? 'พบสัญญาณใหม่ในรอบล่าสุด' : 'ไม่มีสัญญาณใหม่ในรอบล่าสุด';
+  }
+  return source.totalObservations === 0 ? 'ยังไม่เคยพบข้อมูลจากแหล่งนี้' : 'ยังไม่มีสัญญาณที่เกี่ยวข้อง';
+}

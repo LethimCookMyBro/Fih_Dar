@@ -156,9 +156,7 @@ export function SourcesHero() {
         <div className='border-border rounded-2xl border bg-card p-5 shadow-xs sm:p-6'>
           <div className='mb-2 flex items-center justify-between gap-3'>
             <h2 className='text-[0.9375rem] font-semibold tracking-tight'>เส้นทางของสัญญาณ</h2>
-            <span className='text-muted-foreground text-[0.75rem]'>
-              แผนภาพสายข้อมูล — ไม่ใช่การอัปเดตสด
-            </span>
+            <span className='text-muted-foreground text-[0.75rem]'>ตัวเลขจากฐานข้อมูลจริง</span>
           </div>
           <SignalFlow />
         </div>

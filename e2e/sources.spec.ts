@@ -224,6 +224,25 @@ test.describe('/sources — read-only APIs', () => {
     expect(raw).not.toContain('secret');
   });
 
+  test('source status is not conflated with data-signal state', async ({ request }) => {
+    // Regression: a source can report status=OK (fetch/parse/upsert succeeded)
+    // while having produced zero relevant observations ever. The API must
+    // expose enough to tell those two facts apart — collapsing them back into
+    // one opaque "OK" is the exact defect this fixes.
+    const response = await request.get('/api/sources/summary');
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.sources.length).toBeGreaterThanOrEqual(2);
+    for (const source of body.sources) {
+      expect(typeof source.relevantObservations).toBe('number');
+      expect(source.relevantObservations).toBeGreaterThanOrEqual(0);
+      // Relevant is a subset of total — never more than what was ingested.
+      expect(source.relevantObservations).toBeLessThanOrEqual(source.totalObservations);
+      expect(['number', 'object']).toContain(typeof source.lastRunMatched); // number | null
+      expect(['number', 'object']).toContain(typeof source.lastRunCreated);
+    }
+  });
+
   test('source list is paginated, searchable, and sanitized', async ({ request }) => {
     const response = await request.get('/api/sources?q=มติชน&page=1&pageSize=20');
     expect(response.status()).toBe(200);

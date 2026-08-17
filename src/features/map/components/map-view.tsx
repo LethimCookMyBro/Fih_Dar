@@ -68,6 +68,13 @@ export function MapView() {
   const { data, isPending, isError, refetch, isFetching } = useQuery(publicReportsQueryOptions());
   const reports = React.useMemo(() => filterReports(data?.reports ?? [], filters), [data, filters]);
   const { data: observationData } = useQuery(publicObservationsQueryOptions());
+  const placedObservations = React.useMemo(
+    () =>
+      (observationData?.observations ?? []).filter(
+        (observation) => observation.latitude !== null && observation.longitude !== null
+      ),
+    [observationData]
+  );
   const selected = reports.find((report) => report.id === selectedId) ?? null;
 
   // --- map lifecycle ------------------------------------------------------
@@ -203,18 +210,15 @@ export function MapView() {
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    const placed = (observationData?.observations ?? []).filter(
-      (observation) => observation.latitude !== null && observation.longitude !== null
-    );
     updateObservationsData(
       map,
-      placed.map((observation) => ({
+      placedObservations.map((observation) => ({
         id: observation.id,
         latitude: observation.latitude as number,
         longitude: observation.longitude as number
       }))
     );
-  }, [observationData, mapReady]);
+  }, [placedObservations, mapReady]);
 
   // Highlight the selected report and centre on it.
   React.useEffect(() => {
@@ -318,7 +322,11 @@ export function MapView() {
             onLayersChange={setLayers}
             onNavigate={navigateTo}
           />
-          <MapLegend count={reports.length} />
+          <MapLegend
+            count={reports.length}
+            observationCount={placedObservations.length}
+            observationsVisible={layers.observations}
+          />
           <PriorityPanel onFly={flyToPriorityArea} />
           <ReportPanel report={selected} onClose={() => setSelectedId(null)} />
         </>

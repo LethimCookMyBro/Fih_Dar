@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { sourceDetailQueryOptions, sourceListQueryOptions } from '@/features/sources/api/queries';
-import { formatDateTime, formatNumber } from '@/features/sources/lib/format';
+import { formatDateTime, formatNumber, signalCaption } from '@/features/sources/lib/format';
 import { cn } from '@/lib/utils';
 import type { SourceListSort, SourceStatus } from '@/features/sources/api/types';
 
@@ -117,6 +117,11 @@ function SourceDetailSheet({
               </SheetDescription>
               <div className='pt-2'>
                 <SourceStatusPill status={detail.status} />
+                {signalCaption(detail) && (
+                  <p className='text-muted-foreground mt-1.5 text-[0.8125rem]'>
+                    {signalCaption(detail)}
+                  </p>
+                )}
               </div>
             </SheetHeader>
 
@@ -157,9 +162,21 @@ function SourceDetailSheet({
                   <dd className='mt-0.5'>{formatDateTime(detail.lastNewObservationAt)}</dd>
                 </div>
                 <div>
-                  <dt className='text-muted-foreground text-[0.75rem]'>จำนวนรายการ</dt>
+                  <dt className='text-muted-foreground text-[0.75rem]'>จำนวนรายการทั้งหมด</dt>
                   <dd className='mt-0.5 font-semibold tabular-nums'>
                     {formatNumber(detail.totalObservations)}
+                  </dd>
+                  <dd className='text-muted-foreground text-[0.75rem]'>
+                    สะสมตลอดช่วงเวลา — ยังไม่กรองความเกี่ยวข้อง
+                  </dd>
+                </div>
+                <div>
+                  <dt className='text-muted-foreground text-[0.75rem]'>รายการที่เกี่ยวข้อง</dt>
+                  <dd className='mt-0.5 font-semibold tabular-nums'>
+                    {formatNumber(detail.relevantObservations)}
+                  </dd>
+                  <dd className='text-muted-foreground text-[0.75rem]'>
+                    ผ่านการตรวจสอบความเกี่ยวข้องแล้ว
                   </dd>
                 </div>
               </dl>
@@ -443,6 +460,11 @@ export function SourceObservatory() {
                           </td>
                           <td className='py-3.5 pr-4 whitespace-nowrap'>
                             <SourceStatusPill status={source.status} />
+                            {signalCaption(source) && (
+                              <p className='text-muted-foreground mt-1 text-[0.75rem]'>
+                                {signalCaption(source)}
+                              </p>
+                            )}
                           </td>
                           <td className='text-muted-foreground py-3.5 pr-4 whitespace-nowrap'>
                             {formatDateTime(source.lastCheckedAt)}
@@ -483,7 +505,14 @@ export function SourceObservatory() {
                           {formatNumber(source.totalObservations)} รายการ
                         </span>
                       </span>
-                      <SourceStatusPill status={source.status} />
+                      <span className='flex shrink-0 flex-col items-end gap-1'>
+                        <SourceStatusPill status={source.status} />
+                        {signalCaption(source) && (
+                          <span className='text-muted-foreground text-end text-[0.6875rem]'>
+                            {signalCaption(source)}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   </li>
                 ))}

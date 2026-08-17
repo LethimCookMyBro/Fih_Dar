@@ -328,7 +328,15 @@ export function MapControls({
  * Legend. Collapsed to a single icon button on mobile so it never competes with
  * the map on a 390px screen; open by default from md up where there is room.
  */
-export function MapLegend({ count }: { count: number }) {
+export function MapLegend({
+  count,
+  observationCount,
+  observationsVisible
+}: {
+  count: number;
+  observationCount: number;
+  observationsVisible: boolean;
+}) {
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -373,9 +381,10 @@ export function MapLegend({ count }: { count: number }) {
             ข้อมูลจากแหล่งภายนอก
           </li>
         </ul>
-        <p className='text-muted-foreground border-border mt-3 border-t pt-2 text-[0.8125rem] tabular-nums'>
-          แสดง {count} รายงาน
-        </p>
+        <div className='text-muted-foreground border-border mt-3 border-t pt-2 text-[0.8125rem] tabular-nums'>
+          <p>แสดง {count} รายงานที่ยืนยันแล้ว</p>
+          {observationsVisible && <p>+ {observationCount} จากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)</p>}
+        </div>
       </div>
     </>
   );

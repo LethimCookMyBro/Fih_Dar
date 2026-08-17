@@ -42,6 +42,11 @@ export interface SourceStatusRow {
   lastCheckedAt: string | null;
   lastNewObservationAt: string | null;
   totalObservations: number;
+  /** Lifetime count of this source's observations with relevanceVerdict=RELEVANT. */
+  relevantObservations: number;
+  /** This source's matched/created counts in the latest run only (null if not run yet). */
+  lastRunMatched: number | null;
+  lastRunCreated: number | null;
 }
 
 export interface PipelineStats {
@@ -81,6 +86,9 @@ export interface SourceListItem {
   lastCheckedAt: string | null;
   lastNewObservationAt: string | null;
   totalObservations: number;
+  relevantObservations: number;
+  lastRunMatched: number | null;
+  lastRunCreated: number | null;
 }
 
 export interface SourceListResponse {
