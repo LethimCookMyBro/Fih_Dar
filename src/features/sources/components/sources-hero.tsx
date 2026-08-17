@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { sourcesSummaryQueryOptions } from '@/features/sources/api/queries';
 import { formatDateTime, formatNumber } from '@/features/sources/lib/format';
+import { scrollToJourney } from '@/features/sources/lib/scroll-to-journey';
 
 import { SignalFlow } from './signal-flow';
 
@@ -141,10 +142,11 @@ export function SourcesHero() {
               สำรวจบนแผนที่
             </Button>
             <Button
-              nativeButton={false}
+              type='button'
               variant='outline'
               className='h-11 px-5 text-[0.9375rem]'
-              render={<Link href='#journey' aria-label='ดูสายงานการประมวลผล' />}
+              aria-label='ดูสายงานการประมวลผล เลื่อนลงไปที่ขั้นตอนการประมวลผลด้านล่าง'
+              onClick={scrollToJourney}
             >
               ดูสายงานการประมวลผล
               <Icons.arrowRight className='size-4' aria-hidden />

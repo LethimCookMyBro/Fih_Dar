@@ -125,17 +125,47 @@ function StageDetail({ stage, pipeline }: { stage: Stage; pipeline: PipelineStat
 export function IntelligenceJourney() {
   const { data } = useQuery(sourcesSummaryQueryOptions());
   const [selected, setSelected] = React.useState<StageId>('relevance');
+  const [highlight, setHighlight] = React.useState(false);
+  const headingRef = React.useRef<HTMLHeadingElement>(null);
   const pipeline = data?.pipeline ?? null;
+
+  // Fired by the "ดูสายงานการประมวลผล" CTAs so a click always produces an
+  // unmistakable result even when the URL is already at #journey (scrolling
+  // there is otherwise silent — see scrollToJourney's doc comment).
+  React.useEffect(() => {
+    let timer: number | undefined;
+    const onFocusRequest = () => {
+      window.clearTimeout(timer);
+      setHighlight(true);
+      headingRef.current?.focus();
+      timer = window.setTimeout(() => setHighlight(false), 1400);
+    };
+    window.addEventListener('fihdar:journey-focus', onFocusRequest);
+    return () => {
+      window.removeEventListener('fihdar:journey-focus', onFocusRequest);
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   const selectedStage = STAGES.find((stage) => stage.id === selected) ?? STAGES[0];
 
   return (
     <section id='journey' aria-labelledby='journey-heading' className='scroll-mt-24'>
-      <div className='max-w-2xl'>
+      <div
+        className={cn(
+          '-m-3 max-w-2xl rounded-2xl p-3 transition-colors duration-700',
+          highlight ? 'bg-primary/8' : 'bg-transparent'
+        )}
+      >
         <p className='text-primary text-[0.8125rem] font-semibold tracking-wide uppercase'>
           สายงานการประมวลผล
         </p>
-        <h2 id='journey-heading' className='mt-2 text-2xl font-semibold tracking-tight sm:text-3xl'>
+        <h2
+          id='journey-heading'
+          ref={headingRef}
+          tabIndex={-1}
+          className='mt-2 text-2xl font-semibold tracking-tight sm:text-3xl'
+        >
           FihDar เปลี่ยนข้อมูลให้เป็นสัญญาณได้อย่างไร
         </h2>
         <p className='text-muted-foreground mt-3 text-[0.9375rem] leading-relaxed'>

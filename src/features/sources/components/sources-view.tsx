@@ -42,14 +42,6 @@ function TransparencyCta() {
             <Icons.map />
             สำรวจบนแผนที่
           </Button>
-          <Button
-            nativeButton={false}
-            variant='outline'
-            className='h-11 px-5 text-[0.9375rem]'
-            render={<Link href='#journey' aria-label='ดูสายงานการประมวลผลอีกครั้ง' />}
-          >
-            ดูสายงานการประมวลผล
-          </Button>
         </div>
       </div>
     </section>
