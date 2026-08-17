@@ -92,7 +92,7 @@ export function MapView() {
   const [attempt, setAttempt] = React.useState(0);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [selectedEventSlug, setSelectedEventSlug] = React.useState<string | null>(null);
-  const [filters, setFilters] = React.useState<MapFilters>({ province: 'all', days: 'all' });
+  const [filters, setFilters] = React.useState<MapFilters>({ provinces: [], days: 'all' });
   const [layers, setLayers] = React.useState<MapLayerToggles>({
     events: true,
     monitoring: true,

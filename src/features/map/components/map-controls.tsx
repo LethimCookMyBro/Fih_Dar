@@ -16,6 +16,17 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue
+} from '@/components/ui/combobox';
+import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { QUICK_PLACES, type QuickPlace } from '@/features/map/constants';
@@ -68,7 +79,15 @@ interface MapControlsProps {
 }
 
 function activeFilterCount(filters: MapFilters) {
-  return (filters.province !== 'all' ? 1 : 0) + (filters.days !== 'all' ? 1 : 0);
+  return (filters.provinces.length > 0 ? 1 : 0) + (filters.days !== 'all' ? 1 : 0);
+}
+
+// 0 selected -> "ทุกจังหวัด"; 1-3 -> the names joined; 4+ -> "N จังหวัด" so the
+// trigger never grows to fit an arbitrarily long selection.
+function provinceSummaryLabel(selected: string[]): string {
+  if (selected.length === 0) return 'ทุกจังหวัด';
+  if (selected.length <= 3) return selected.join(', ');
+  return `${selected.length} จังหวัด`;
 }
 
 function PlaceList({ onNavigate }: { onNavigate: (place: QuickPlace) => void }) {
@@ -117,69 +136,171 @@ function LayerToggles({
   );
 }
 
-function FilterFields({
+function DaysFilter({
   filters,
-  onFiltersChange,
+  onFiltersChange
+}: Pick<MapControlsProps, 'filters' | 'onFiltersChange'>) {
+  return (
+    <Select
+      value={filters.days}
+      onValueChange={(value) => onFiltersChange({ ...filters, days: String(value) })}
+    >
+      <SelectTrigger
+        aria-label='กรองตามช่วงเวลา'
+        className={cn(
+          'h-11 w-full rounded-(--nav-radius) text-[0.9375rem] md:w-40',
+          FLOATING_SURFACE
+        )}
+      >
+        <SelectValue placeholder='ช่วงเวลา'>
+          {(value) => DAY_RANGES.find((r) => r.value === value)?.label ?? String(value)}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {DAY_RANGES.map((range) => (
+          <SelectItem key={range.value} value={range.value}>
+            {range.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** Desktop/tablet: compact trigger + searchable popover, built entirely on
+ *  the existing base-ui Combobox (multi-select, filtering, and keyboard nav
+ *  all come from the primitive — no hand-rolled listbox logic). */
+function ProvinceFilter({
+  provinces,
   provinceOptions,
-  className
-}: Pick<MapControlsProps, 'filters' | 'onFiltersChange' | 'provinceOptions'> & {
-  className?: string;
+  onChange
+}: {
+  provinces: string[];
+  provinceOptions: string[];
+  onChange: (provinces: string[]) => void;
 }) {
   return (
-    <div className={className}>
-      <Select
-        value={filters.province}
-        onValueChange={(value) => onFiltersChange({ ...filters, province: String(value) })}
+    <Combobox items={provinceOptions} multiple value={provinces} onValueChange={onChange}>
+      <ComboboxTrigger
+        render={
+          <Button
+            variant='outline'
+            aria-label='กรองตามจังหวัด'
+            className={cn(
+              'h-11 justify-between gap-2 rounded-(--nav-radius) px-3 text-[0.9375rem] md:w-40',
+              FLOATING_SURFACE
+            )}
+          />
+        }
       >
-        {/* The trigger needs the floating surface itself: the base Select
-            trigger is bg-transparent, so over the map it rendered as a hole —
-            place names and road shields read straight through it. */}
-        <SelectTrigger
-          aria-label='กรองตามจังหวัด'
-          className={cn(
-            'h-11 w-full rounded-(--nav-radius) text-[0.9375rem] md:w-40',
-            FLOATING_SURFACE
-          )}
-        >
-          {/* Base UI renders the raw value unless given a mapping function, so
-              this showed "all" instead of "ทุกจังหวัด". */}
-          <SelectValue placeholder='จังหวัด'>
-            {(value) => (value === 'all' ? 'ทุกจังหวัด' : String(value))}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value='all'>ทุกจังหวัด</SelectItem>
-          {provinceOptions.map((province) => (
-            <SelectItem key={province} value={province}>
+        <ComboboxValue placeholder='จังหวัด'>{(value) => provinceSummaryLabel(value)}</ComboboxValue>
+      </ComboboxTrigger>
+      <ComboboxContent className='w-72'>
+        <ComboboxInput placeholder='ค้นหาจังหวัด...' showTrigger={false} showClear />
+        <ComboboxEmpty>ไม่พบจังหวัด</ComboboxEmpty>
+        <ComboboxList>
+          {(province: string) => (
+            <ComboboxItem key={province} value={province}>
               {province}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={filters.days}
-        onValueChange={(value) => onFiltersChange({ ...filters, days: String(value) })}
-      >
-        <SelectTrigger
-          aria-label='กรองตามช่วงเวลา'
-          className={cn(
-            'h-11 w-full rounded-(--nav-radius) text-[0.9375rem] md:w-40',
-            FLOATING_SURFACE
+            </ComboboxItem>
           )}
-        >
-          <SelectValue placeholder='ช่วงเวลา'>
-            {(value) => DAY_RANGES.find((r) => r.value === value)?.label ?? String(value)}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {DAY_RANGES.map((range) => (
-            <SelectItem key={range.value} value={range.value}>
-              {range.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        </ComboboxList>
+        <div className='flex items-center justify-between gap-2 border-t border-border p-1'>
+          <Button
+            variant='ghost'
+            size='sm'
+            className='h-8 px-2 text-[0.8125rem]'
+            onClick={() => onChange(provinceOptions)}
+          >
+            เลือกทั้งหมด
+          </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            className='h-8 px-2 text-[0.8125rem]'
+            onClick={() => onChange([])}
+          >
+            ล้าง
+          </Button>
+        </div>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
+
+/** Mobile: no popover-in-sheet nesting — a plain search input plus the same
+ *  44px Checkbox/Label row pattern LayerToggles already uses, scrollable
+ *  independently of the sheet body so search + select-all/clear stay put. */
+function ProvinceChecklist({
+  provinces,
+  provinceOptions,
+  onChange
+}: {
+  provinces: string[];
+  provinceOptions: string[];
+  onChange: (provinces: string[]) => void;
+}) {
+  const [query, setQuery] = React.useState('');
+  const filtered = React.useMemo(
+    () => provinceOptions.filter((province) => province.includes(query.trim())),
+    [provinceOptions, query]
+  );
+
+  function toggle(province: string, checked: boolean) {
+    onChange(checked ? [...provinces, province] : provinces.filter((p) => p !== province));
+  }
+
+  return (
+    <div className='flex flex-col gap-2'>
+      <div className='flex items-center justify-between gap-2'>
+        <p className='text-muted-foreground text-[0.8125rem]'>
+          {provinces.length === 0 ? 'ทุกจังหวัด' : `เลือกแล้ว ${provinces.length} จังหวัด`}
+        </p>
+        <div className='flex gap-1'>
+          <Button
+            variant='ghost'
+            size='sm'
+            className='h-8 px-2 text-[0.8125rem]'
+            onClick={() => onChange(provinceOptions)}
+          >
+            เลือกทั้งหมด
+          </Button>
+          <Button
+            variant='ghost'
+            size='sm'
+            className='h-8 px-2 text-[0.8125rem]'
+            onClick={() => onChange([])}
+          >
+            ล้าง
+          </Button>
+        </div>
+      </div>
+      <Input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder='ค้นหาจังหวัด...'
+        aria-label='ค้นหาจังหวัด'
+      />
+      <div className='max-h-56 overflow-y-auto overscroll-contain rounded-(--nav-radius) border border-border'>
+        {filtered.length === 0 ? (
+          <p className='text-muted-foreground p-3 text-[0.8125rem]'>ไม่พบจังหวัด</p>
+        ) : (
+          filtered.map((province) => (
+            <Label
+              key={province}
+              htmlFor={`province-${province}`}
+              className='hover:bg-accent/60 flex min-h-11 cursor-pointer items-center gap-3 px-2 text-[0.9375rem] leading-snug font-normal transition-colors'
+            >
+              <Checkbox
+                id={`province-${province}`}
+                checked={provinces.includes(province)}
+                onCheckedChange={(checked) => toggle(province, checked === true)}
+              />
+              {province}
+            </Label>
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -247,13 +368,19 @@ export function MapControls({
             <SheetHeader className='pb-0'>
               <SheetTitle className='text-lg'>ตัวกรองและเลเยอร์</SheetTitle>
             </SheetHeader>
-            <div className='flex flex-col gap-6 px-4 pb-6'>
-              <FilterFields
-                filters={filters}
-                onFiltersChange={onFiltersChange}
-                provinceOptions={provinceOptions}
-                className='flex flex-col gap-3'
-              />
+            <div className='flex max-h-[70vh] flex-col gap-6 overflow-y-auto overscroll-contain px-4 pb-6'>
+              <div>
+                <p className='text-muted-foreground mb-1 text-[0.8125rem]'>จังหวัด</p>
+                <ProvinceChecklist
+                  provinces={filters.provinces}
+                  provinceOptions={provinceOptions}
+                  onChange={(provinces) => onFiltersChange({ ...filters, provinces })}
+                />
+              </div>
+              <div>
+                <p className='text-muted-foreground mb-1 text-[0.8125rem]'>ช่วงเวลา</p>
+                <DaysFilter filters={filters} onFiltersChange={onFiltersChange} />
+              </div>
               <div>
                 <p className='text-muted-foreground mb-1 text-[0.8125rem]'>เลเยอร์</p>
                 <LayerToggles layers={layers} onLayersChange={onLayersChange} />
@@ -294,12 +421,14 @@ export function MapControls({
           </PopoverContent>
         </Popover>
 
-        <FilterFields
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-          provinceOptions={provinceOptions}
-          className='flex items-center gap-2'
-        />
+        <div className='flex items-center gap-2'>
+          <ProvinceFilter
+            provinces={filters.provinces}
+            provinceOptions={provinceOptions}
+            onChange={(provinces) => onFiltersChange({ ...filters, provinces })}
+          />
+          <DaysFilter filters={filters} onFiltersChange={onFiltersChange} />
+        </div>
 
         <Popover>
           <Tooltip>
