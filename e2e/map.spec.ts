@@ -238,34 +238,44 @@ test.describe('/map — province filter', () => {
     await page.goto('/map');
     await waitForMapReady(page);
 
-    if ((page.viewportSize()?.width ?? 1280) < 768) {
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    if (isMobile) {
       await page.getByRole('button', { name: 'ตัวกรอง' }).click();
+    } else {
+      // base-ui's ComboboxTrigger exposes role="combobox" (not "button") once
+      // its ComboboxInput lives inside the popup, per the ARIA combobox
+      // pattern — confirmed against node_modules/@base-ui/react/combobox/trigger/ComboboxTrigger.js.
+      await page.getByRole('combobox', { name: 'กรองตามจังหวัด' }).click();
     }
-    const provinceSelect = page.locator('[aria-label="กรองตามจังหวัด"]:visible');
-    await provinceSelect.click();
 
-    // Regression: this dropdown used to reuse REPORT_PROVINCES (the citizen
+    // Regression: this list used to reuse REPORT_PROVINCES (the citizen
     // report submission enum, correctly EEC-only), which silently hid any
     // event/observation province the nationwide ingestion pipeline produces.
-    // "ทุกจังหวัด" + at least the 3 EEC provinces must always be present.
-    const optionCount = await page.getByRole('option').count();
-    expect(optionCount).toBeGreaterThanOrEqual(4);
-    for (const province of ['ทุกจังหวัด', 'ฉะเชิงเทรา', 'ชลบุรี', 'ระยอง']) {
-      await expect(page.getByRole('option', { name: province })).toBeVisible();
+    // Mobile note: base-ui's Checkbox.Root puts a caller-supplied `id` on the
+    // internal aria-hidden native <input>, not on the visible role=checkbox
+    // element (which gets its own generated id) — so `getByRole('checkbox')
+    // .and([id^="province-"])` never matches anything. The <Label for=...>
+    // wrapper is the reliable, unique-per-row hook instead.
+    const options = isMobile ? page.locator('label[for^="province-"]') : page.getByRole('option');
+    const optionCount = await options.count();
+    expect(optionCount).toBeGreaterThanOrEqual(3);
+    for (const province of ['ฉะเชิงเทรา', 'ชลบุรี', 'ระยอง']) {
+      if (isMobile) {
+        await expect(page.getByRole('checkbox', { name: province })).toBeVisible();
+      } else {
+        await expect(page.getByRole('option', { name: province })).toBeVisible();
+      }
     }
-    await page.keyboard.press('Escape');
+    if (!isMobile) await page.keyboard.press('Escape');
   });
 
-  test('selecting a province filters citizen reports and clearing restores them', async ({
+  test('selecting provinces filters citizen reports with union semantics, and clearing restores them', async ({
     page
   }) => {
     await page.goto('/map');
     await waitForMapReady(page);
 
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
-    // Below md the legend starts collapsed; from md up it is open by
-    // default. Either way it stays open independently of the filter sheet
-    // opening/closing on top of it.
     if (isMobile) {
       await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
     }
@@ -274,20 +284,54 @@ test.describe('/map — province filter', () => {
     await expect(reportLine).toBeVisible();
     const initialCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
 
-    if (isMobile) await page.getByRole('button', { name: 'ตัวกรอง' }).click();
-    await page.locator('[aria-label="กรองตามจังหวัด"]:visible').click();
-    await page.getByRole('option', { name: 'ชลบุรี' }).click();
-    if (isMobile) await page.keyboard.press('Escape');
+    async function openProvincePicker() {
+      if (isMobile) {
+        await page.getByRole('button', { name: 'ตัวกรอง' }).click();
+      } else {
+        await page.getByRole('combobox', { name: 'กรองตามจังหวัด' }).click();
+      }
+    }
+    async function selectProvince(name: string) {
+      if (isMobile) {
+        await page.getByRole('checkbox', { name }).click();
+      } else {
+        await page.getByRole('option', { name }).click();
+      }
+    }
+    async function closePicker() {
+      await page.keyboard.press('Escape');
+    }
 
-    const filteredCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
-    expect(filteredCount).toBeLessThanOrEqual(initialCount);
+    // Select Chonburi.
+    await openProvincePicker();
+    await selectProvince('ชลบุรี');
+    await closePicker();
+    const chonburiOnlyCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
+    expect(chonburiOnlyCount).toBeLessThanOrEqual(initialCount);
 
-    // Clear back to "ทุกจังหวัด" — the count must return to its original value.
-    if (isMobile) await page.getByRole('button', { name: 'ตัวกรอง' }).click();
-    await page.locator('[aria-label="กรองตามจังหวัด"]:visible').click();
-    await page.getByRole('option', { name: 'ทุกจังหวัด' }).click();
-    if (isMobile) await page.keyboard.press('Escape');
+    // Add Rayong — union, count can only grow or stay the same.
+    await openProvincePicker();
+    await selectProvince('ระยอง');
+    await closePicker();
+    const unionCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
+    expect(unionCount).toBeGreaterThanOrEqual(chonburiOnlyCount);
+    expect(unionCount).toBeLessThanOrEqual(initialCount);
 
+    // Remove Rayong — back to Chonburi-only.
+    await openProvincePicker();
+    await selectProvince('ระยอง');
+    await closePicker();
+    const backToChonburiOnly = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
+    expect(backToChonburiOnly).toBe(chonburiOnlyCount);
+
+    // Clear — full count returns.
+    await openProvincePicker();
+    if (isMobile) {
+      await page.getByRole('button', { name: 'ล้าง' }).click();
+    } else {
+      await page.getByRole('button', { name: 'ล้าง' }).click();
+    }
+    await closePicker();
     await expect(reportLine).toHaveText(`แสดง ${initialCount} รายงานจากประชาชน`);
   });
 
@@ -304,10 +348,14 @@ test.describe('/map — province filter', () => {
     await page.getByRole('button', { name: 'ปิด', exact: true }).click();
 
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
-    if (isMobile) await page.getByRole('button', { name: 'ตัวกรอง' }).click();
-    await page.locator('[aria-label="กรองตามจังหวัด"]:visible').click();
-    await page.getByRole('option', { name: 'ชลบุรี' }).click();
-    if (isMobile) await page.keyboard.press('Escape');
+    if (isMobile) {
+      await page.getByRole('button', { name: 'ตัวกรอง' }).click();
+      await page.getByRole('checkbox', { name: 'ชลบุรี' }).click();
+    } else {
+      await page.getByRole('combobox', { name: 'กรองตามจังหวัด' }).click();
+      await page.getByRole('option', { name: 'ชลบุรี' }).click();
+    }
+    await page.keyboard.press('Escape');
 
     await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
     await expect(dialog).toBeVisible();
