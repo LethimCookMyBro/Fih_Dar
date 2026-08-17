@@ -257,6 +257,10 @@ test.describe('/map — province filter', () => {
     // .and([id^="province-"])` never matches anything. The <Label for=...>
     // wrapper is the reliable, unique-per-row hook instead.
     const options = isMobile ? page.locator('label[for^="province-"]') : page.getByRole('option');
+    // .count() snapshots immediately and does not retry, unlike .click()/expect() —
+    // wait for the popup's list to actually have rendered content first (same
+    // pattern as the areaCards.first() wait in the event-detail-panel test above).
+    await expect(options.first()).toBeVisible();
     const optionCount = await options.count();
     expect(optionCount).toBeGreaterThanOrEqual(3);
     for (const province of ['ฉะเชิงเทรา', 'ชลบุรี', 'ระยอง']) {
@@ -270,8 +274,23 @@ test.describe('/map — province filter', () => {
   });
 
   test('selecting provinces filters citizen reports with union semantics, and clearing restores them', async ({
-    page
+    page,
+    request
   }) => {
+    // Ground truth from the same endpoint the map itself reads
+    // (src/features/reports/api/service.ts calls '/reports/public'), fetched
+    // before any UI interaction so every assertion below is an exact match
+    // against real data instead of a relative before/after comparison —
+    // a relational check like toBeLessThanOrEqual would still pass even if
+    // province filtering were a complete no-op.
+    const reportsResponse = await request.get('/api/reports/public');
+    const { reports } = (await reportsResponse.json()) as { reports: { province: string }[] };
+    const initialCount = reports.length;
+    const chonburiCount = reports.filter((r) => r.province === 'ชลบุรี').length;
+    const unionCount = reports.filter(
+      (r) => r.province === 'ชลบุรี' || r.province === 'ระยอง'
+    ).length;
+
     await page.goto('/map');
     await waitForMapReady(page);
 
@@ -281,8 +300,7 @@ test.describe('/map — province filter', () => {
     }
 
     const reportLine = page.getByText(/^แสดง \d+ รายงานจากประชาชน$/);
-    await expect(reportLine).toBeVisible();
-    const initialCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
+    await expect(reportLine).toHaveText(`แสดง ${initialCount} รายงานจากประชาชน`);
 
     async function openProvincePicker() {
       if (isMobile) {
@@ -306,45 +324,47 @@ test.describe('/map — province filter', () => {
     await openProvincePicker();
     await selectProvince('ชลบุรี');
     await closePicker();
-    const chonburiOnlyCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
-    expect(chonburiOnlyCount).toBeLessThanOrEqual(initialCount);
+    await expect(reportLine).toHaveText(`แสดง ${chonburiCount} รายงานจากประชาชน`);
 
-    // Add Rayong — union, count can only grow or stay the same.
+    // Add Rayong — union.
     await openProvincePicker();
     await selectProvince('ระยอง');
     await closePicker();
-    const unionCount = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
-    expect(unionCount).toBeGreaterThanOrEqual(chonburiOnlyCount);
-    expect(unionCount).toBeLessThanOrEqual(initialCount);
+    await expect(reportLine).toHaveText(`แสดง ${unionCount} รายงานจากประชาชน`);
 
     // Remove Rayong — back to Chonburi-only.
     await openProvincePicker();
     await selectProvince('ระยอง');
     await closePicker();
-    const backToChonburiOnly = Number((await reportLine.textContent())?.match(/\d+/)?.[0]);
-    expect(backToChonburiOnly).toBe(chonburiOnlyCount);
+    await expect(reportLine).toHaveText(`แสดง ${chonburiCount} รายงานจากประชาชน`);
 
     // Clear — full count returns.
     await openProvincePicker();
-    if (isMobile) {
-      await page.getByRole('button', { name: 'ล้าง' }).click();
-    } else {
-      await page.getByRole('button', { name: 'ล้าง' }).click();
-    }
+    await page.getByRole('button', { name: 'ล้าง' }).click();
     await closePicker();
     await expect(reportLine).toHaveText(`แสดง ${initialCount} รายงานจากประชาชน`);
   });
 
   test('province filter also narrows the priority panel, not just citizen reports', async ({
-    page
+    page,
+    request
   }) => {
+    // Ground truth from '/api/events/priority' (src/features/priority/api/service.ts),
+    // fetched before any UI interaction. The map's default `days` filter is
+    // 'all', so no time-based narrowing is in play — a pure province count is
+    // the correct exact expectation, not just an upper bound.
+    const priorityResponse = await request.get('/api/events/priority');
+    const { areas } = (await priorityResponse.json()) as { areas: { province: string | null }[] };
+    const initialCount = areas.length;
+    const chonburiCount = areas.filter((a) => a.province === 'ชลบุรี').length;
+
     await page.goto('/map');
     await waitForMapReady(page);
 
     await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
     const dialog = page.getByRole('dialog', { name: /อันดับพื้นที่/ });
     await expect(dialog).toBeVisible();
-    const initialCount = await dialog.locator('li').count();
+    await expect(dialog.locator('li')).toHaveCount(initialCount);
     await page.getByRole('button', { name: 'ปิด', exact: true }).click();
 
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
@@ -359,8 +379,7 @@ test.describe('/map — province filter', () => {
 
     await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
     await expect(dialog).toBeVisible();
-    const filteredCount = await dialog.locator('li').count();
-    expect(filteredCount).toBeLessThanOrEqual(initialCount);
+    await expect(dialog.locator('li')).toHaveCount(chonburiCount);
   });
 });
 
