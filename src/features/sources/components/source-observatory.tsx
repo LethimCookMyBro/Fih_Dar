@@ -22,9 +22,15 @@ import {
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { sourceDetailQueryOptions, sourceListQueryOptions } from '@/features/sources/api/queries';
-import { formatDateTime, formatNumber, signalCaption } from '@/features/sources/lib/format';
+import {
+  SOURCE_ROLES,
+  formatDateTime,
+  formatNumber,
+  signalCaption,
+  sourceRole
+} from '@/features/sources/lib/format';
 import { cn } from '@/lib/utils';
-import type { SourceListSort, SourceStatus } from '@/features/sources/api/types';
+import type { SourceListSort, SourceListItem, SourceStatus } from '@/features/sources/api/types';
 
 const PAGE_SIZE = 20;
 
@@ -81,6 +87,74 @@ function TransportIcon({ transport }: { transport: string }) {
   if (transport === 'RSS') return <Icons.rss className='size-4' aria-hidden />;
   if (transport === 'CKAN') return <Icons.database className='size-4' aria-hidden />;
   return <Icons.globe className='size-4' aria-hidden />;
+}
+
+function RoleIcon({ roleKey }: { roleKey: string }) {
+  if (roleKey === 'government') return <Icons.buildingBank className='size-4' aria-hidden />;
+  if (roleKey === 'citizen-science') return <Icons.radar className='size-4' aria-hidden />;
+  return <Icons.rss className='size-4' aria-hidden />;
+}
+
+/**
+ * Evidence-role legend. Groups the connected sources by what role they play
+ * in the surveillance story — official/government, news/discovery, or
+ * citizen/field — with live counts and an honest note that biodiversity
+ * aggregators were evaluated and rejected as mirrors of iNaturalist (they
+ * would inflate corroboration without adding independent evidence).
+ */
+function RoleLegend({ sources }: { sources: SourceListItem[] }) {
+  return (
+    <div className='mt-5 grid gap-3 sm:grid-cols-3'>
+      {SOURCE_ROLES.map((role) => {
+        const members = sources.filter(
+          (source) => sourceRole(source.authorityType).key === role.key
+        );
+        if (members.length === 0) return null;
+        const relevant = members.reduce((sum, source) => sum + source.relevantObservations, 0);
+        return (
+          <div
+            key={role.key}
+            className='border-border bg-card/60 flex flex-col gap-1.5 rounded-xl border p-4'
+          >
+            <div className='flex items-center gap-2'>
+              <span className='border-border text-primary flex size-7 shrink-0 items-center justify-center rounded-lg border bg-background'>
+                <RoleIcon roleKey={role.key} />
+              </span>
+              <p className='text-[0.9375rem] font-semibold tracking-tight'>{role.label}</p>
+            </div>
+            <p className='text-muted-foreground text-[0.6875rem] font-semibold tracking-wide uppercase'>
+              {role.tagline}
+            </p>
+            <p className='text-muted-foreground text-[0.8125rem] leading-relaxed'>
+              {role.description}
+            </p>
+            <p className='mt-auto pt-1 text-[0.8125rem] tabular-nums'>
+              <span className='font-semibold'>{formatNumber(members.length)}</span>{' '}
+              <span className='text-muted-foreground'>แหล่ง</span>
+              <span className='text-primary'> · {formatNumber(relevant)} สัญญาณ</span>
+            </p>
+          </div>
+        );
+      })}
+      <div className='border-border bg-card/60 flex flex-col gap-1.5 rounded-xl border p-4'>
+        <div className='flex items-center gap-2'>
+          <span className='border-border text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-lg border bg-background'>
+            <Icons.database className='size-4' aria-hidden />
+          </span>
+          <p className='text-[0.9375rem] font-semibold tracking-tight'>
+            ฐานข้อมูลความหลากหลายทางชีวภาพ
+          </p>
+        </div>
+        <p className='text-muted-foreground text-[0.6875rem] font-semibold tracking-wide uppercase'>
+          BIODIVERSITY
+        </p>
+        <p className='text-muted-foreground text-[0.8125rem] leading-relaxed'>
+          ยังไม่ได้เชื่อมต่อ — ประเมิน GBIF / OBIS / TH-BIF แล้วพบว่า 100% ของข้อมูลในไทยเป็นสำเนาจาก
+          iNaturalist จึงไม่นับเป็นแหล่งอิสระ
+        </p>
+      </div>
+    </div>
+  );
 }
 
 // --- Detail drawer -----------------------------------------------------------
@@ -292,8 +366,10 @@ export function SourceObservatory() {
         </p>
       )}
 
+      <RoleLegend sources={data?.sources ?? []} />
+
       {/* Toolbar */}
-      <div className='mt-5 flex flex-col gap-2.5 lg:flex-row lg:items-center'>
+      <div className='mt-6 flex flex-col gap-2.5 lg:flex-row lg:items-center'>
         <div className='relative flex-1'>
           <Icons.search
             className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2'
@@ -352,7 +428,10 @@ export function SourceObservatory() {
       {isPending ? (
         <ObservatorySkeleton />
       ) : (
-        <div className='border-border mt-5 overflow-hidden rounded-2xl border bg-card'>
+        <div
+          data-testid='source-observatory-results'
+          className='border-border mt-5 overflow-hidden rounded-2xl border bg-card'
+        >
           {data && data.sources.length === 0 ? (
             <div className='px-6 py-14 text-center'>
               <p className='text-muted-foreground text-[0.9375rem]'>ไม่พบแหล่งข้อมูลที่ตรงกับเงื่อนไข</p>
@@ -440,7 +519,7 @@ export function SourceObservatory() {
                               <div>
                                 <p className='font-medium'>{source.label}</p>
                                 <p className='text-muted-foreground text-[0.75rem]'>
-                                  {source.category}
+                                  {sourceRole(source.authorityType).label}
                                 </p>
                               </div>
                             </div>
@@ -500,7 +579,7 @@ export function SourceObservatory() {
                       <span className='min-w-0 flex-1'>
                         <span className='block truncate font-medium'>{source.label}</span>
                         <span className='text-muted-foreground block truncate text-[0.75rem]'>
-                          {source.category} · {source.transport} ·{' '}
+                          {sourceRole(source.authorityType).label} · {source.transport} ·{' '}
                           {formatNumber(source.totalObservations)} รายการ
                         </span>
                       </span>

@@ -47,6 +47,53 @@ export function formatDuration(durationMs: number | null): string {
   return `${(durationMs / 1000).toFixed(1)} วิ`;
 }
 
+// ---------------------------------------------------------------------------
+// Source roles — the evidence-grouping dimension for the observatory.
+// Derived from the registry's authorityType so it can never drift from the
+// persisted metadata; a role that has no connected source simply has no rows.
+// ---------------------------------------------------------------------------
+export interface SourceRole {
+  key: 'government' | 'news' | 'citizen-science';
+  label: string;
+  tagline: string;
+  description: string;
+}
+
+export const SOURCE_ROLES: SourceRole[] = [
+  {
+    key: 'government',
+    label: 'ข้อมูลภาครัฐ',
+    tagline: 'OFFICIAL / GOVERNMENT',
+    description: 'ชุดข้อมูลเปิดและประกาศจากหน่วยงานราชการ'
+  },
+  {
+    key: 'news',
+    label: 'ข่าวสาร / การค้นพบ',
+    tagline: 'NEWS / DISCOVERY',
+    description: 'ข่าวสาธารณะที่รายงานการพบและการดำเนินการ'
+  },
+  {
+    key: 'citizen-science',
+    label: 'พลเมือง / ภาคสนาม',
+    tagline: 'CITIZEN / FIELD',
+    description: 'การสังเกตภาคสนามพร้อมพิกัดจากประชาชน'
+  }
+];
+
+const ROLE_BY_AUTHORITY = new Map<string, SourceRole>(SOURCE_ROLES.map((role) => [role.key, role]));
+
+/** Fallback role for an unknown authorityType — never a crash, never a blank row. */
+const UNKNOWN_ROLE: SourceRole = {
+  key: 'news',
+  label: 'ข่าวสาร / การค้นพบ',
+  tagline: 'NEWS / DISCOVERY',
+  description: 'ข่าวสาธารณะที่รายงานการพบและการดำเนินการ'
+};
+
+export function sourceRole(authorityType: string): SourceRole {
+  return ROLE_BY_AUTHORITY.get(authorityType) ?? UNKNOWN_ROLE;
+}
+
 /** Thai label for a location precision level. */
 export const PRECISION_LABELS: Record<string, string> = {
   EXACT: 'พิกัดที่ระบุ',

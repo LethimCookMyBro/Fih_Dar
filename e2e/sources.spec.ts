@@ -194,10 +194,12 @@ test.describe('/sources — scalable observatory', () => {
     await page.getByLabel('ค้นหาแหล่งข้อมูล').pressSequentially('มติชน');
     // The footer shows the *filtered* total — only one source matches.
     await expect(page.getByText('แสดง 1 จาก 1 แหล่ง')).toBeVisible();
-    // Scoped to the observatory: the trace section above may legitimately
-    // mention iNaturalist, so assert on the table region only.
-    const observatory = page.getByRole('region', { name: 'แหล่งข้อมูลที่เชื่อมต่อ' });
-    await expect(observatory.getByText('iNaturalist', { exact: false })).toBeHidden();
+    // Scoped to the observatory results card: the trace section above and the
+    // role legend may legitimately mention iNaturalist (the legend explains
+    // why GBIF/OBIS/TH-BIF were not connected as independent sources), so
+    // assert on the filtered results only.
+    const results = page.getByTestId('source-observatory-results');
+    await expect(results.getByText('iNaturalist', { exact: false })).toBeHidden();
   });
 
   test('pagination footer stays bounded', async ({ page }) => {
