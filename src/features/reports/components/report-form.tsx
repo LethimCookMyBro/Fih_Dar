@@ -191,6 +191,7 @@ export function ReportForm() {
                   maxFiles={1}
                   maxSize={MAX_IMAGE_BYTES}
                   accept={{ 'image/jpeg': [], 'image/png': [], 'image/webp': [] }}
+                  enableCameraCapture
                   value={field.state.value ? [field.state.value as File] : []}
                   onValueChange={(next) => {
                     const files = typeof next === 'function' ? next([]) : next;

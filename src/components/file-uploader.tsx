@@ -87,6 +87,23 @@ export interface FileUploaderProps extends React.HTMLAttributes<HTMLDivElement> 
    * @example disabled
    */
   disabled?: boolean;
+
+  /**
+   * Show a prominent "ถ่ายรูป" (take photo) action alongside the drop zone,
+   * using the platform camera-capture file input. Off by default — most
+   * callers (e.g. document uploads) have no reason to prefer a camera.
+   * @type boolean
+   * @default false
+   */
+  enableCameraCapture?: boolean;
+}
+
+function isAcceptedFileType(file: File, accept: DropzoneProps['accept']): boolean {
+  const types = accept ? Object.keys(accept) : [];
+  if (types.length === 0) return true;
+  return types.some((type) =>
+    type.endsWith('/*') ? file.type.startsWith(type.slice(0, -1)) : file.type === type
+  );
 }
 
 export function FileUploader(props: FileUploaderProps) {
@@ -100,6 +117,7 @@ export function FileUploader(props: FileUploaderProps) {
     maxFiles = 1,
     multiple = false,
     disabled = false,
+    enableCameraCapture = false,
     className,
     ...dropzoneProps
   } = props;
@@ -108,6 +126,7 @@ export function FileUploader(props: FileUploaderProps) {
     prop: valueProp,
     onChange: onValueChange
   });
+  const cameraInputRef = React.useRef<HTMLInputElement>(null);
 
   const onDrop = React.useCallback(
     (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
@@ -154,6 +173,27 @@ export function FileUploader(props: FileUploaderProps) {
     [files, maxFiles, multiple, onUpload, setFiles]
   );
 
+  // Camera capture bypasses react-dropzone entirely (it's a plain file
+  // input), so it needs the same accept/maxSize validation onDrop gets from
+  // the Dropzone wrapper — then hands off to the same onDrop logic so
+  // toasts, previews, and onUpload all behave identically either way.
+  function onCameraCapture(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    event.target.value = ''; // lets the user retake with the same filename
+    if (selected.length === 0) return;
+
+    const accepted: File[] = [];
+    const rejected: FileRejection[] = [];
+    for (const file of selected) {
+      if (file.size > maxSize || !isAcceptedFileType(file, accept)) {
+        rejected.push({ file, errors: [] });
+      } else {
+        accepted.push(file);
+      }
+    }
+    onDrop(accepted, rejected);
+  }
+
   function onRemove(index: number) {
     if (!files) return;
     const newFiles = files.filter((_, i) => i !== index);
@@ -178,6 +218,18 @@ export function FileUploader(props: FileUploaderProps) {
 
   return (
     <div className='relative flex flex-col gap-6 overflow-hidden'>
+      {enableCameraCapture && (
+        <input
+          ref={cameraInputRef}
+          type='file'
+          accept='image/*'
+          capture='environment'
+          className='hidden'
+          tabIndex={-1}
+          aria-hidden='true'
+          onChange={onCameraCapture}
+        />
+      )}
       <Dropzone
         onDrop={onDrop}
         accept={accept}
@@ -185,45 +237,73 @@ export function FileUploader(props: FileUploaderProps) {
         maxFiles={maxFiles}
         multiple={maxFiles > 1 || multiple}
         disabled={isDisabled}
+        noClick={enableCameraCapture}
       >
-        {({ getRootProps, getInputProps, isDragActive }) => (
-          <div
-            {...getRootProps()}
-            className={cn(
-              'group border-muted-foreground/25 hover:bg-muted/25 relative grid h-52 w-full cursor-pointer place-items-center rounded-lg border-2 border-dashed px-5 py-2.5 text-center transition',
-              'ring-offset-background focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden',
-              isDragActive && 'border-muted-foreground/50',
-              isDisabled && 'pointer-events-none opacity-60',
-              className
-            )}
-            {...dropzoneProps}
-          >
-            <input {...getInputProps()} aria-label='อัปโหลดรูปภาพ' />
-            {isDragActive ? (
-              <div className='flex flex-col items-center justify-center gap-4 sm:px-5'>
-                <div className='rounded-full border border-dashed p-3'>
-                  <Icons.upload className='text-muted-foreground size-7' aria-hidden='true' />
-                </div>
-                <p className='text-muted-foreground font-medium'>วางไฟล์ที่นี่</p>
-              </div>
-            ) : (
-              <div className='flex flex-col items-center justify-center gap-4 sm:px-5'>
-                <div className='rounded-full border border-dashed p-3'>
-                  <Icons.upload className='text-muted-foreground size-7' aria-hidden='true' />
-                </div>
-                <div className='space-y-px'>
-                  <p className='text-muted-foreground font-medium'>
-                    ลากรูปภาพมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์
-                  </p>
-                  <p className='text-muted-foreground/70 text-sm'>
-                    {maxFiles > 1
-                      ? `เลือกได้สูงสุด ${maxFiles} ไฟล์ (ไฟล์ละไม่เกิน ${formatBytes(maxSize)})`
-                      : `ไฟล์ละไม่เกิน ${formatBytes(maxSize)}`}
-                  </p>
-                </div>
+        {({ getRootProps, getInputProps, isDragActive, open }) => (
+          <>
+            {enableCameraCapture && !isDisabled && (
+              <div className='grid grid-cols-2 gap-3'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  className='h-12 gap-2 text-[0.9375rem]'
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  <Icons.camera className='size-5' aria-hidden />
+                  ถ่ายรูป
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  className='h-12 gap-2 text-[0.9375rem]'
+                  onClick={open}
+                >
+                  <Icons.upload className='size-5' aria-hidden />
+                  เลือกรูปจากเครื่อง
+                </Button>
               </div>
             )}
-          </div>
+            <div
+              {...getRootProps()}
+              className={cn(
+                'group border-muted-foreground/25 hover:bg-muted/25 relative grid h-52 w-full cursor-pointer place-items-center rounded-lg border-2 border-dashed px-5 py-2.5 text-center transition',
+                'ring-offset-background focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden',
+                isDragActive && 'border-muted-foreground/50',
+                isDisabled && 'pointer-events-none opacity-60',
+                enableCameraCapture && 'cursor-default',
+                className
+              )}
+              {...dropzoneProps}
+            >
+              <input {...getInputProps()} aria-label='อัปโหลดรูปภาพ' />
+              {isDragActive ? (
+                <div className='flex flex-col items-center justify-center gap-4 sm:px-5'>
+                  <div className='rounded-full border border-dashed p-3'>
+                    <Icons.upload className='text-muted-foreground size-7' aria-hidden='true' />
+                  </div>
+                  <p className='text-muted-foreground font-medium'>วางไฟล์ที่นี่</p>
+                </div>
+              ) : (
+                <div className='flex flex-col items-center justify-center gap-4 sm:px-5'>
+                  <div className='rounded-full border border-dashed p-3'>
+                    <Icons.upload className='text-muted-foreground size-7' aria-hidden='true' />
+                  </div>
+                  <div className='space-y-px'>
+                    <p className='text-muted-foreground font-medium'>
+                      {enableCameraCapture
+                        ? 'หรือลากรูปภาพมาวางที่นี่'
+                        : 'ลากรูปภาพมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์'}
+                    </p>
+                    <p className='text-muted-foreground/70 text-sm'>
+                      {maxFiles > 1
+                        ? `เลือกได้สูงสุด ${maxFiles} ไฟล์ (ไฟล์ละไม่เกิน ${formatBytes(maxSize)})`
+                        : `ไฟล์ละไม่เกิน ${formatBytes(maxSize)}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </Dropzone>
       {files?.length ? (

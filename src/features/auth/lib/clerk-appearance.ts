@@ -45,7 +45,7 @@ export const clerkAppearance: Appearance = {
     // Border-defined, matching src/components/ui/input.tsx. Without the explicit
     // border the field sat at colorInput === colorBackground and disappeared
     // into the card.
-    formFieldInput: 'h-11 border border-input bg-transparent text-[0.9375rem]',
+    formFieldInput: 'h-11 !border-input border bg-transparent text-[0.9375rem]',
     formFieldLabel: 'text-[0.9375rem]',
     socialButtonsBlockButton: 'h-11 text-[0.9375rem] normal-case',
     // Clerk renders the branding/dev-mode row as a visually separate grey slab by
