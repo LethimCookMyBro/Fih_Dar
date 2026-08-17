@@ -422,7 +422,6 @@ export function SourceObservatory() {
                   </thead>
                   <tbody>
                     {data?.sources.map((source) => {
-                      const rowLabel = 'ดูรายละเอียด ' + source.label;
                       return (
                         <tr
                           key={source.id}
