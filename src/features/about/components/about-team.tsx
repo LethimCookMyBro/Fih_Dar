@@ -47,12 +47,6 @@ function initialsAvatar(letter: string, bg: string, fg: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-// Diagonal stripe mask that shapes where the holographic sweep shows — without it the
-// shine layer washes the whole card evenly instead of reading as a moving scan.
-const HOLO_MASK = `data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='120' height='120' fill='black'/><g stroke='white' stroke-width='7' opacity='0.9'><line x1='-20' y1='0' x2='60' y2='140'/><line x1='20' y1='0' x2='100' y2='140'/><line x1='60' y1='0' x2='140' y2='140'/><line x1='100' y1='0' x2='180' y2='140'/></g></svg>`
-)}`;
-
 export function AboutTeam() {
   return (
     <section className='border-t'>
@@ -66,16 +60,11 @@ export function AboutTeam() {
 
         <ul className='mt-16 grid grid-cols-1 place-items-center gap-y-12 gap-x-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-8'>
           {TEAM.map((member) => (
-            <li key={member.name}>
+            <li key={member.name} className='flex w-full max-w-[300px] justify-center'>
               <ProfileCard
                 name={member.name}
                 title={member.role}
                 avatarUrl={initialsAvatar(member.letter, member.bg, member.fg)}
-                iconUrl={HOLO_MASK}
-                cardHeight='420px'
-                behindGlowColor='rgba(42, 157, 143, 0.45)'
-                innerGradient='linear-gradient(150deg,#4b214290 0%,#2a9d8f2e 100%)'
-                enableMobileTilt={false}
               />
             </li>
           ))}
