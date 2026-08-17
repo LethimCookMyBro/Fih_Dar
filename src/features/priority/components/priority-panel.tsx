@@ -14,14 +14,14 @@ import type { PriorityArea } from '@/features/priority/api/types';
 const FLOATING_SURFACE = 'border border-border bg-background shadow-sm dark:bg-background';
 
 /** verified/high = destructive red, medium = amber, low/no-data = neutral — never the brand color as a risk signal. */
-function scoreTier(score: number): { label: string; badgeClass: string } {
+export function scoreTier(score: number): { label: string; badgeClass: string } {
   if (score >= 70)
     return { label: 'ความสำคัญสูง', badgeClass: 'bg-destructive text-destructive-foreground' };
   if (score >= 40) return { label: 'ความสำคัญปานกลาง', badgeClass: 'bg-amber-500 text-white' };
   return { label: 'ความสำคัญต่ำ', badgeClass: 'bg-muted text-muted-foreground' };
 }
 
-function formatAge(ageDays: number | null): string {
+export function formatAge(ageDays: number | null): string {
   if (ageDays === null) return 'ไม่ทราบวันที่';
   if (ageDays < 1) return 'วันนี้';
   return `${Math.round(ageDays)} วันก่อน`;

@@ -1,6 +1,7 @@
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 
 import type { Report } from '@/features/reports/api/types';
+import type { PriorityArea } from '@/features/priority/api/types';
 
 export const REPORTS_SOURCE = 'fihdar-reports';
 export const HEATMAP_SOURCE = 'fihdar-reports-flat';
@@ -11,14 +12,34 @@ export const HEATMAP_LAYER = 'fihdar-reports-heatmap';
 export const SELECTED_LAYER = 'fihdar-reports-selected';
 export const OBSERVATIONS_SOURCE = 'fihdar-observations';
 export const OBSERVATIONS_LAYER = 'fihdar-observations-point';
+export const EVENTS_SOURCE = 'fihdar-events';
+export const EVENTS_CLUSTER_LAYER = 'fihdar-events-clusters';
+export const EVENTS_CLUSTER_COUNT_LAYER = 'fihdar-events-cluster-count';
+export const EVENTS_LAYER = 'fihdar-events-point';
+export const EVENTS_SELECTED_LAYER = 'fihdar-events-selected';
 
 export const OBSERVATION_IMAGE = 'fihdar-observation-diamond';
+export const EVENT_IMAGE = 'fihdar-event-triangle';
 
 const KEPPEL = '#2A9D8F';
 /** Eggplant #4B2142 as raw RGB for the observation diamond image buffer. */
 const EGGPLANT = [0x4b, 0x21, 0x42] as const;
 /** Matches nothing — the selection layer's resting filter. */
 const NO_SELECTION: ['==', string, string] = ['==', 'id', '__no_selection__'];
+/** Matches nothing — the event selection layer's resting filter. */
+const NO_EVENT_SELECTION: ['==', string, string] = ['==', 'slug', '__no_selection__'];
+
+/** Same three tiers as `scoreTier()` in priority-panel.tsx — destructive red
+ * for high priority, amber for medium, neutral for low. Never the brand color
+ * as a risk signal. */
+const SCORE_HIGH = '#c0392b';
+const SCORE_MEDIUM = '#f59e0b';
+const SCORE_LOW = '#70797d';
+
+/** Score tiers, used inline as `['step', ['get', prop], SCORE_LOW, 40,
+ * SCORE_MEDIUM, 70, SCORE_HIGH]` in each paint property below — TypeScript's
+ * MapLibre style-spec types only narrow expression literals when they are
+ * inlined directly in the `paint` object, not when built by a helper. */
 
 type ReportFeatureCollection = GeoJSON.FeatureCollection<GeoJSON.Point, { id: string }>;
 
@@ -243,4 +264,144 @@ export function updateObservationsData(
       properties: { id: observation.id }
     }))
   });
+}
+
+// --- Events (EventCandidates with an exact coordinate, ranked by priority) --
+
+const EVENT_IMAGE_SIZE = 30;
+
+/** Upward triangle silhouette, added as an SDF image so `icon-color` can tint
+ * it per-feature by score tier — a shape distinct from both the report circle
+ * and the observation diamond. */
+function eventTriangleImage(): { width: number; height: number; data: Uint8Array } {
+  const size = EVENT_IMAGE_SIZE;
+  const margin = 4;
+  const apexY = margin;
+  const baseY = size - margin;
+  const halfBase = size / 2 - margin;
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y += 1) {
+    const t = (y - apexY) / (baseY - apexY);
+    const halfWidth = Math.max(0, Math.min(1, t)) * halfBase;
+    const left = size / 2 - halfWidth;
+    const right = size / 2 + halfWidth;
+    for (let x = 0; x < size; x += 1) {
+      const offset = (y * size + x) * 4;
+      const inside = t >= 0 && t <= 1 && x >= left && x <= right;
+      if (inside) {
+        data[offset] = 0xff;
+        data[offset + 1] = 0xff;
+        data[offset + 2] = 0xff;
+        data[offset + 3] = 255;
+      }
+    }
+  }
+  return { width: size, height: size, data };
+}
+
+/**
+ * Adds the operational-events source + layers: clustered at low zoom (colored
+ * by the highest score in the cluster), individual triangles at high zoom
+ * (colored by that event's own score tier), plus a larger selected variant.
+ * Only EventCandidates with an EXACT coordinate are ever placed here — a
+ * PROVINCE/WATERBODY/UNKNOWN-precision event has no honest point to draw.
+ */
+export function addEventsLayer(map: MapLibreMap): void {
+  if (map.getSource(EVENTS_SOURCE)) return;
+  if (!map.hasImage(EVENT_IMAGE)) {
+    map.addImage(EVENT_IMAGE, eventTriangleImage(), { sdf: true });
+  }
+  const textFont = styleTextFont(map);
+
+  map.addSource(EVENTS_SOURCE, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+    cluster: true,
+    clusterRadius: 40,
+    clusterMaxZoom: 12,
+    clusterProperties: { maxScore: ['max', ['get', 'score']] }
+  });
+
+  map.addLayer({
+    id: EVENTS_CLUSTER_LAYER,
+    type: 'circle',
+    source: EVENTS_SOURCE,
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': ['step', ['get', 'maxScore'], SCORE_LOW, 40, SCORE_MEDIUM, 70, SCORE_HIGH],
+      'circle-opacity': 0.9,
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+      'circle-radius': ['step', ['get', 'point_count'], 14, 5, 20, 15, 26]
+    }
+  });
+
+  map.addLayer({
+    id: EVENTS_CLUSTER_COUNT_LAYER,
+    type: 'symbol',
+    source: EVENTS_SOURCE,
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': ['get', 'point_count_abbreviated'],
+      ...(textFont ? { 'text-font': textFont } : {}),
+      'text-size': 11
+    },
+    paint: { 'text-color': '#ffffff' }
+  });
+
+  map.addLayer({
+    id: EVENTS_LAYER,
+    type: 'symbol',
+    source: EVENTS_SOURCE,
+    filter: ['!', ['has', 'point_count']],
+    layout: { 'icon-image': EVENT_IMAGE, 'icon-size': 0.85, 'icon-allow-overlap': true },
+    paint: {
+      'icon-color': ['step', ['get', 'score'], SCORE_LOW, 40, SCORE_MEDIUM, 70, SCORE_HIGH],
+      'icon-halo-color': '#ffffff',
+      'icon-halo-width': 1.5
+    }
+  });
+
+  // Selection is a separate filtered layer, same reason as SELECTED_LAYER
+  // above — a clustered GeoJSON source does not carry feature-state.
+  map.addLayer({
+    id: EVENTS_SELECTED_LAYER,
+    type: 'symbol',
+    source: EVENTS_SOURCE,
+    filter: NO_EVENT_SELECTION,
+    layout: { 'icon-image': EVENT_IMAGE, 'icon-size': 1.25, 'icon-allow-overlap': true },
+    paint: {
+      'icon-color': ['step', ['get', 'score'], SCORE_LOW, 40, SCORE_MEDIUM, 70, SCORE_HIGH],
+      'icon-halo-color': '#ffffff',
+      'icon-halo-width': 2.5
+    }
+  });
+}
+
+export function updateEventsData(map: MapLibreMap, areas: PriorityArea[]): void {
+  const source = map.getSource(EVENTS_SOURCE) as GeoJSONSource | undefined;
+  if (!source) return;
+  source.setData({
+    type: 'FeatureCollection',
+    features: areas
+      .filter(
+        (area): area is PriorityArea & { coordinate: NonNullable<PriorityArea['coordinate']> } =>
+          area.coordinate !== null
+      )
+      .map((area) => ({
+        type: 'Feature' as const,
+        id: area.slug,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [area.coordinate.longitude, area.coordinate.latitude]
+        },
+        properties: { slug: area.slug, score: area.score }
+      }))
+  });
+}
+
+export function setSelectedEvent(map: MapLibreMap, slug: string | null): void {
+  if (!map.getLayer(EVENTS_SELECTED_LAYER)) return;
+  const filter: ['==', string, string] = slug ? ['==', 'slug', slug] : NO_EVENT_SELECTION;
+  map.setFilter(EVENTS_SELECTED_LAYER, filter);
 }

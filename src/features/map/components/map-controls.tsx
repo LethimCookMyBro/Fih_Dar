@@ -26,6 +26,7 @@ export interface MapFilters {
 }
 
 export interface MapLayerToggles {
+  events: boolean;
   reports: boolean;
   waterways: boolean;
   heatmap: boolean;
@@ -41,10 +42,11 @@ export const DAY_RANGES = [
 ];
 
 const LAYER_LABELS: Record<keyof MapLayerToggles, string> = {
-  reports: 'รายงานที่ยืนยันแล้ว',
+  events: 'เหตุการณ์ที่เชื่อมโยง (ทดลอง)',
+  reports: 'รายงานจากประชาชน (ยืนยันแล้ว)',
   waterways: 'เส้นทางน้ำ',
-  heatmap: 'ความหนาแน่นของรายงานที่ยืนยันแล้ว',
-  observations: 'ข้อมูลจากแหล่งภายนอก'
+  heatmap: 'ความหนาแน่นของรายงานจากประชาชน',
+  observations: 'สัญญาณดิบจากแหล่งภายนอก (ยังไม่จัดกลุ่ม)'
 };
 
 /** Shared surface for anything floating over the map: one border, one soft
@@ -329,15 +331,22 @@ export function MapControls({
  * the map on a 390px screen; open by default from md up where there is room.
  */
 export function MapLegend({
-  count,
+  reportCount,
+  eventCount,
+  eventsTotal,
+  eventsVisible,
   observationCount,
   observationsVisible
 }: {
-  count: number;
+  reportCount: number;
+  eventCount: number;
+  eventsTotal: number;
+  eventsVisible: boolean;
   observationCount: number;
   observationsVisible: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
+  const eventsWithoutCoordinate = eventsTotal - eventCount;
 
   return (
     <>
@@ -357,7 +366,7 @@ export function MapLegend({
 
       <div
         className={cn(
-          'absolute bottom-3 start-3 z-10 w-60 rounded-xl p-3 md:bottom-4 md:start-4 md:block',
+          'absolute bottom-3 start-3 z-10 w-64 rounded-xl p-3 md:bottom-4 md:start-4 md:block',
           FLOATING_SURFACE,
           open ? 'block' : 'hidden'
         )}
@@ -366,24 +375,40 @@ export function MapLegend({
         <ul className='space-y-2 text-[0.8125rem]'>
           <li className='flex items-center gap-2.5'>
             <span className='bg-primary size-3 shrink-0 rounded-full ring-2 ring-white' />
-            รายงานที่ยืนยันแล้ว
+            รายงานจากประชาชน (ยืนยันแล้ว)
           </li>
           <li className='flex items-center gap-2.5'>
             <span className='bg-primary ring-primary/40 size-3 shrink-0 rounded-full ring-4' />
             กลุ่มรายงาน / รายงานที่เลือก
           </li>
           <li className='flex items-center gap-2.5'>
+            <span
+              className='size-0 shrink-0 border-x-[5px] border-b-[9px] border-x-transparent border-b-destructive'
+              aria-hidden
+            />
+            เหตุการณ์ที่เชื่อมโยง — สีแสดงลำดับความสำคัญ (แดง สูง · เหลือง ปานกลาง · เทา ต่ำ)
+          </li>
+          <li className='flex items-center gap-2.5'>
             <span className='bg-primary h-0.5 w-4 shrink-0 rounded' />
             เส้นทางน้ำจากข้อมูลแผนที่
           </li>
-          <li className='flex items-center gap-2.5'>
-            <span className='bg-brand size-2.5 shrink-0 rotate-45 rounded-[2px] ring-2 ring-white' />
-            ข้อมูลจากแหล่งภายนอก
-          </li>
+          {observationsVisible && (
+            <li className='flex items-center gap-2.5'>
+              <span className='bg-brand size-2.5 shrink-0 rotate-45 rounded-[2px] ring-2 ring-white' />
+              สัญญาณดิบจากแหล่งภายนอก (ยังไม่จัดกลุ่มเป็นเหตุการณ์)
+            </li>
+          )}
         </ul>
-        <div className='text-muted-foreground border-border mt-3 border-t pt-2 text-[0.8125rem] tabular-nums'>
-          <p>แสดง {count} รายงานที่ยืนยันแล้ว</p>
-          {observationsVisible && <p>+ {observationCount} จากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)</p>}
+        <div className='text-muted-foreground border-border mt-3 space-y-0.5 border-t pt-2 text-[0.8125rem] tabular-nums'>
+          <p>แสดง {reportCount} รายงานจากประชาชน</p>
+          {eventsVisible && (
+            <p>
+              + {eventCount} เหตุการณ์ที่มีพิกัดแน่นอน จาก {eventsTotal} เหตุการณ์ทั้งหมด
+              {eventsWithoutCoordinate > 0 &&
+                ` (อีก ${eventsWithoutCoordinate} รายการดูได้ที่ "อันดับพื้นที่")`}
+            </p>
+          )}
+          {observationsVisible && <p>+ {observationCount} สัญญาณดิบจากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)</p>}
         </div>
       </div>
     </>

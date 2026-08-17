@@ -13,20 +13,28 @@ import { publicReportsQueryOptions } from '@/features/reports/api/queries';
 import type { Report } from '@/features/reports/api/types';
 import { publicObservationsQueryOptions } from '@/features/observations/api/queries';
 import { PriorityPanel } from '@/features/priority/components/priority-panel';
+import { priorityAreasQueryOptions } from '@/features/priority/api/queries';
 import type { PriorityArea } from '@/features/priority/api/types';
 import { INITIAL_VIEW, MAP_STYLE_URL, type QuickPlace } from '@/features/map/constants';
 import {
   CLUSTER_COUNT_LAYER,
   CLUSTER_LAYER,
+  EVENTS_CLUSTER_COUNT_LAYER,
+  EVENTS_CLUSTER_LAYER,
+  EVENTS_LAYER,
+  EVENTS_SELECTED_LAYER,
   HEATMAP_LAYER,
   OBSERVATIONS_LAYER,
   POINT_LAYER,
   SELECTED_LAYER,
+  addEventsLayer,
   addObservationsLayer,
   addReportLayers,
   setLayerVisibility,
+  setSelectedEvent,
   setSelectedReport,
   toFeatureCollection,
+  updateEventsData,
   updateObservationsData,
   updateReportData
 } from '@/features/map/lib/report-layers';
@@ -34,8 +42,15 @@ import { loadMapLibre } from '@/features/map/lib/load-maplibre';
 import { applyWaterwayEmphasis, setWaterwayVisibility } from '@/features/map/lib/waterways';
 import { MapControls, MapLegend, type MapFilters, type MapLayerToggles } from './map-controls';
 import { ReportPanel } from './report-panel';
+import { EventPanel } from './event-panel';
 
 const REPORT_LAYERS = [CLUSTER_LAYER, CLUSTER_COUNT_LAYER, POINT_LAYER, SELECTED_LAYER];
+const EVENT_LAYERS = [
+  EVENTS_CLUSTER_LAYER,
+  EVENTS_CLUSTER_COUNT_LAYER,
+  EVENTS_LAYER,
+  EVENTS_SELECTED_LAYER
+];
 
 function filterReports(reports: Report[], filters: MapFilters): Report[] {
   const cutoff =
@@ -57,8 +72,10 @@ export function MapView() {
   // lifecycle (worker, style, layers) instead of a full page reload.
   const [attempt, setAttempt] = React.useState(0);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selectedEventSlug, setSelectedEventSlug] = React.useState<string | null>(null);
   const [filters, setFilters] = React.useState<MapFilters>({ province: 'all', days: 'all' });
   const [layers, setLayers] = React.useState<MapLayerToggles>({
+    events: true,
     reports: true,
     waterways: true,
     heatmap: false,
@@ -75,7 +92,14 @@ export function MapView() {
       ),
     [observationData]
   );
+  const { data: priorityData } = useQuery(priorityAreasQueryOptions());
+  const eventAreas = React.useMemo(() => priorityData?.areas ?? [], [priorityData]);
+  const placedEventAreas = React.useMemo(
+    () => eventAreas.filter((area) => area.coordinate !== null),
+    [eventAreas]
+  );
   const selected = reports.find((report) => report.id === selectedId) ?? null;
+  const selectedEvent = eventAreas.find((area) => area.slug === selectedEventSlug) ?? null;
 
   // --- map lifecycle ------------------------------------------------------
   React.useEffect(() => {
@@ -125,6 +149,7 @@ export function MapView() {
           applyWaterwayEmphasis(map);
           addReportLayers(map, toFeatureCollection([]));
           addObservationsLayer(map);
+          addEventsLayer(map);
           setMapReady(true);
         });
       })
@@ -157,7 +182,10 @@ export function MapView() {
 
     const onPointClick = (event: MapLayerMouseEvent) => {
       const id = event.features?.[0]?.properties?.id;
-      if (typeof id === 'string') setSelectedId(id);
+      if (typeof id === 'string') {
+        setSelectedEventSlug(null);
+        setSelectedId(id);
+      }
     };
 
     const onClusterClick = (event: MapLayerMouseEvent) => {
@@ -170,12 +198,23 @@ export function MapView() {
       });
     };
 
+    const onEventClick = (event: MapLayerMouseEvent) => {
+      const slug = event.features?.[0]?.properties?.slug;
+      if (typeof slug === 'string') {
+        setSelectedId(null);
+        setSelectedEventSlug(slug);
+      }
+    };
+
     const pointer = () => (map.getCanvas().style.cursor = 'pointer');
     const resetPointer = () => (map.getCanvas().style.cursor = '');
+    const clickableLayers = [POINT_LAYER, CLUSTER_LAYER, EVENTS_LAYER, EVENTS_CLUSTER_LAYER];
 
     map.on('click', POINT_LAYER, onPointClick);
     map.on('click', CLUSTER_LAYER, onClusterClick);
-    for (const layer of [POINT_LAYER, CLUSTER_LAYER]) {
+    map.on('click', EVENTS_LAYER, onEventClick);
+    map.on('click', EVENTS_CLUSTER_LAYER, onClusterClick);
+    for (const layer of clickableLayers) {
       map.on('mouseenter', layer, pointer);
       map.on('mouseleave', layer, resetPointer);
     }
@@ -183,7 +222,9 @@ export function MapView() {
     return () => {
       map.off('click', POINT_LAYER, onPointClick);
       map.off('click', CLUSTER_LAYER, onClusterClick);
-      for (const layer of [POINT_LAYER, CLUSTER_LAYER]) {
+      map.off('click', EVENTS_LAYER, onEventClick);
+      map.off('click', EVENTS_CLUSTER_LAYER, onClusterClick);
+      for (const layer of clickableLayers) {
         map.off('mouseenter', layer, pointer);
         map.off('mouseleave', layer, resetPointer);
       }
@@ -200,6 +241,7 @@ export function MapView() {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     setLayerVisibility(map, REPORT_LAYERS, layers.reports);
+    setLayerVisibility(map, EVENT_LAYERS, layers.events);
     setLayerVisibility(map, [HEATMAP_LAYER], layers.heatmap);
     setLayerVisibility(map, [OBSERVATIONS_LAYER], layers.observations);
     setWaterwayVisibility(map, layers.waterways);
@@ -220,6 +262,14 @@ export function MapView() {
     );
   }, [placedObservations, mapReady]);
 
+  // Feed EventCandidates with an exact coordinate into the events layer —
+  // this is the primary operational layer, on by default.
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    updateEventsData(map, placedEventAreas);
+  }, [placedEventAreas, mapReady]);
+
   // Highlight the selected report and centre on it.
   React.useEffect(() => {
     const map = mapRef.current;
@@ -236,6 +286,22 @@ export function MapView() {
     });
   }, [selectedId, selected, mapReady]);
 
+  // Highlight the selected event and centre on it.
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    setSelectedEvent(map, selectedEventSlug);
+    if (!selectedEventSlug || !selectedEvent?.coordinate) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    map.flyTo({
+      center: [selectedEvent.coordinate.longitude, selectedEvent.coordinate.latitude],
+      zoom: Math.max(map.getZoom(), 12),
+      duration: reduceMotion ? 0 : 700
+    });
+  }, [selectedEventSlug, selectedEvent, mapReady]);
+
   const navigateTo = (place: QuickPlace) => {
     const map = mapRef.current;
     if (!map) return;
@@ -246,6 +312,9 @@ export function MapView() {
   const flyToPriorityArea = (area: PriorityArea) => {
     const map = mapRef.current;
     if (!map || !area.coordinate) return;
+    setSelectedId(null);
+    setSelectedEventSlug(area.slug);
+    setLayers((current) => (current.events ? current : { ...current, events: true }));
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     map.flyTo({
       center: [area.coordinate.longitude, area.coordinate.latitude],
@@ -323,12 +392,16 @@ export function MapView() {
             onNavigate={navigateTo}
           />
           <MapLegend
-            count={reports.length}
+            reportCount={reports.length}
+            eventCount={placedEventAreas.length}
+            eventsTotal={eventAreas.length}
+            eventsVisible={layers.events}
             observationCount={placedObservations.length}
             observationsVisible={layers.observations}
           />
           <PriorityPanel onFly={flyToPriorityArea} />
           <ReportPanel report={selected} onClose={() => setSelectedId(null)} />
+          <EventPanel event={selectedEvent} onClose={() => setSelectedEventSlug(null)} />
         </>
       )}
 
