@@ -144,6 +144,46 @@ test.describe('/sources — flagship story', () => {
   });
 });
 
+test.describe('/sources — journey CTA', () => {
+  test('clicking the CTA a second time, while already at #journey, still produces a visible result', async ({
+    page
+  }) => {
+    // Regression: the CTA used to be `<Link href="#journey">`. Next.js's Link
+    // treats a click to the current URL's hash as a no-op — no scroll, no
+    // focus change, nothing — so a user who clicked once, scrolled back up to
+    // re-read the hero, and clicked again got a completely dead button even
+    // though the href/hash were both "technically correct". The fix always
+    // calls scrollIntoView + moves focus to the section heading, regardless of
+    // whether the hash already matches. Focus transfer is the assertion here
+    // (not viewport ratio) because on a short/tall viewport the journey
+    // section can already be partially visible even before any click —
+    // focus only ever moves when the click handler actually ran.
+    await openSources(page);
+    await expect(page.getByText('ข้อมูลที่รับเข้า')).toBeVisible();
+
+    const cta = page.getByRole('button', { name: /^ดูสายงานการประมวลผล/ }).first();
+    const journey = page.locator('#journey');
+    const heading = page.locator('#journey-heading');
+
+    await cta.click();
+    await expect(journey).toBeInViewport();
+    await expect(heading).toBeFocused();
+
+    // Scroll back to the hero and explicitly clear focus. The URL hash stays
+    // #journey (browsers never clear a hash on scroll) — exactly the state
+    // that used to make a second click a complete no-op.
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      (document.activeElement as HTMLElement | null)?.blur();
+    });
+    await expect(heading).not.toBeFocused();
+
+    await cta.click();
+    await expect(journey).toBeInViewport();
+    await expect(heading).toBeFocused();
+  });
+});
+
 test.describe('/sources — scalable observatory', () => {
   test('search filters the table server-side', async ({ page }) => {
     await openSources(page);
@@ -184,7 +224,13 @@ test.describe('/sources — scalable observatory', () => {
         : page.getByRole('button', { name: /iNaturalist/ });
     await rowButton.first().click();
     const sheet = page.getByRole('dialog');
-    await expect(sheet.getByRole('heading', { name: 'iNaturalist' })).toBeVisible();
+    // The drawer opens immediately; its content depends on a separate
+    // sourceDetailQueryOptions fetch, which is slower than the default
+    // assertion timeout under a dev server running several viewport projects
+    // in parallel.
+    await expect(sheet.getByRole('heading', { name: 'iNaturalist' })).toBeVisible({
+      timeout: 15_000
+    });
     await expect(sheet.getByText('ช่องทาง', { exact: true })).toBeVisible();
     await expect(sheet.getByText('JSON API', { exact: true })).toBeVisible();
     await expect(sheet.getByText('เยี่ยมชมเว็บไซต์ต้นทาง')).toBeVisible();

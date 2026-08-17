@@ -8,6 +8,11 @@ import { withSentryConfig } from '@sentry/nextjs';
 const baseConfig: NextConfig = {
   // Pinned: a package-lock.json outside this folder otherwise wins root inference.
   turbopack: { root: dirname(fileURLToPath(import.meta.url)) },
+  // The dev-only "N" indicator's <nextjs-portal> renders in the same bottom-left
+  // corner as the map legend/floating controls and intercepts pointer events
+  // meant for them, causing flaky/failing Playwright clicks in dev mode. It
+  // never ships in a production build, so disabling it costs nothing there.
+  devIndicators: false,
   output: process.env.BUILD_STANDALONE === 'true' ? 'standalone' : undefined,
   images: {
     remotePatterns: [
