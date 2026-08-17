@@ -37,7 +37,8 @@ public map. The UI language is Thai.
 | Route | Auth | Purpose |
 | --- | --- | --- |
 | `/` | — | redirects to `/map` |
-| `/map` | public | interactive Eastern Thailand waterway map with verified reports |
+| `/map` | public | interactive Eastern Thailand waterway map — verified citizen reports, an opt-in external-source layer, and an experimental priority/attention ranking |
+| `/sources` | public | data-source observatory — the six ingestion sources, live pipeline counts, run history, and a real signal trace |
 | `/report` | required | citizen sighting submission form |
 | `/about` | public | what FihDar is and how it works |
 | `/profile` | required | profile details + the user's own reports |
@@ -54,6 +55,13 @@ public map. The UI language is Thai.
 | `GET /api/reports/[id]/image` | mixed | same rule as above; streams bytes, never a filesystem path |
 | `GET /api/profile` | required | reads/creates the current user's profile from Clerk identity |
 | `PATCH /api/profile` | required | edits `displayName`, `phone`, `organization`, `province` only |
+| `GET /api/sources/summary` | public | pipeline totals + per-source technical status and signal counts |
+| `GET /api/sources` | public | paginated, searchable/sortable source registry list |
+| `GET /api/sources/[slug]` | public | single-source detail |
+| `GET /api/sources/runs` | public | bounded, paginated `IngestionRun` history |
+| `GET /api/sources/trace` | public | one real relevant signal traced end-to-end through the pipeline, or the honest empty state |
+| `GET /api/observations/public` | public | relevant, non-duplicate `ExternalObservation` rows for the map's opt-in external layer |
+| `GET /api/events/priority` | public | experimental priority/attention ranking over `EventCandidate` rows |
 
 ---
 
@@ -213,12 +221,17 @@ only.
 **Implemented:** interactive waterway map with filters, layers, clustering, heatmap,
 quick navigation, and a detail drawer; citizen reporting end-to-end with real uploads and
 persistence; profile with live counts and the user's own reports; Clerk sign-in/sign-up;
-the full API surface above; Railway-compatible storage and deployment config; an offline
-intelligence pipeline (`npm run db:intel`) that classifies relevance, extracts location,
-links near-duplicates, and groups external observations into event candidates — see
-[docs/FIHDAR_INTELLIGENCE_SPEC.md](./docs/FIHDAR_INTELLIGENCE_SPEC.md); an EXPERIMENTAL
-operational priority ranking over those event candidates, exposed on `/map` — see
-[docs/FIHDAR_PRIORITY_MVP.md](./docs/FIHDAR_PRIORITY_MVP.md).
+the full API surface above; Railway-compatible storage and deployment config; a six-source
+ingestion pipeline (google-news-th, data.go.th, iNaturalist, matichon, khaosod,
+prachachat) running automatically on a Railway-scheduled cron job every ~6 hours (also
+runnable manually via `npm run db:refresh`) — see [docs/INGESTION.md](./docs/INGESTION.md);
+an intelligence pipeline that classifies relevance, extracts location, links
+near-duplicates, and groups external observations into event candidates — see
+[docs/FIHDAR_INTELLIGENCE_SPEC.md](./docs/FIHDAR_INTELLIGENCE_SPEC.md); the `/sources`
+data-source observatory with live pipeline counts and per-source health (technical status
+is tracked separately from whether a source has ever produced a relevant signal); an
+EXPERIMENTAL operational priority ranking over event candidates, exposed on `/map` and
+`/sources` — see [docs/FIHDAR_PRIORITY_MVP.md](./docs/FIHDAR_PRIORITY_MVP.md).
 
 **Planned / not built:** staff review UI for moving reports out of `PENDING`; automated
 species identification (no model is connected — nothing in the app claims to identify a
@@ -231,7 +244,10 @@ score (see docs/FIHDAR_PRIORITY_MVP.md §4).
 
 ## Documentation
 
+- [CLAUDE.md](./CLAUDE.md) — primary operating guide for AI coding agents (critical conventions, repository hygiene)
 - [AGENTS.md](./AGENTS.md) — structure, conventions, map specifics
+- [docs/INGESTION.md](./docs/INGESTION.md) — the six-source ingestion pipeline, Railway cron schedule, run/failure semantics
+- [docs/intelligence.md](./docs/intelligence.md) — dependency/algorithm selection rationale for the intelligence pipeline
 - [docs/FIHDAR_INTELLIGENCE_SPEC.md](./docs/FIHDAR_INTELLIGENCE_SPEC.md),
   [docs/FIHDAR_INTELLIGENCE_ROADMAP.md](./docs/FIHDAR_INTELLIGENCE_ROADMAP.md) — pipeline design
 - [docs/FIHDAR_PRELIMINARY_VALIDATION.md](./docs/FIHDAR_PRELIMINARY_VALIDATION.md),

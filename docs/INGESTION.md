@@ -5,8 +5,8 @@ FihDar pulls public, structured data about suspected Blackchin Tilapia
 it through the intelligence pipeline, and surfaces the results on `/map` and
 `/sources`. This page documents the automated path.
 
-Nothing here is a scraper: both sources are structured public APIs / RSS
-feeds. There is no HTML anti-bot scraping and no third source in this phase.
+Nothing here is a scraper: every source is a structured public API, RSS feed,
+or citizen-science API. There is no HTML anti-bot scraping.
 
 ---
 
@@ -16,9 +16,16 @@ feeds. There is no HTML anti-bot scraping and no third source in this phase.
 |---|---|---|
 | `google-news-th` | Google News RSS | Thai-language news mentioning Blackchin Tilapia in the EEC provinces |
 | `data.go.th` | CKAN API (open government data portal) | Public datasets matching tilapia / ปลานิล on data.go.th |
+| `inaturalist` | JSON API | Citizen-science occurrence observations of *Sarotherodon melanotheron* in Thailand, with observer-supplied coordinates |
+| `matichon` | RSS | มติชน news feed |
+| `khaosod` | RSS | ข่าวสด news feed |
+| `prachachat` | RSS | ประชาชาติธุรกิจ news feed |
 
-Sources are **hard-coded trusted definitions** in `scripts/ingestion/sources.mjs`.
-The app never accepts arbitrary URLs (no SSRF surface).
+Sources are **hard-coded trusted definitions** in `scripts/ingestion/registry.mjs`
+(one structured adapter each — `rss` / `ckan` / `json-api`; no generic scraper).
+The app never accepts arbitrary URLs (no SSRF surface) — see `/sources` in the UI
+and `src/server/source-registry.ts`, which strips the fetch function before any
+metadata is persisted to the database.
 
 ## Commands
 
@@ -48,7 +55,7 @@ records runs as `SCHEDULED`; local runs default to `MANUAL`.
 ## Pipeline
 
 ```
-Source (Google News RSS / data.go.th)
+Source (google-news-th / data.go.th / inaturalist / matichon / khaosod / prachachat)
   → ExternalObservation (raw, status=RAW)
   → intelligence: species gate → keyword relevance → Thai location extraction
     → near-dedupe (MinHash/LSH) → event resolution (EventCandidate)

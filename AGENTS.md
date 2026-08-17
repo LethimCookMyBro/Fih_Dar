@@ -1,6 +1,7 @@
 # AGENTS.md — FihDar
 
-Reference for AI coding agents. Complements [README.md](./README.md), which covers setup,
+Reference for AI coding agents. Complements [CLAUDE.md](./CLAUDE.md) (critical
+conventions + repository hygiene) and [README.md](./README.md), which covers setup,
 deployment, and the security model in more depth.
 
 ---
@@ -8,12 +9,19 @@ deployment, and the security model in more depth.
 ## What this is
 
 **FihDar** (Fish + Radar) is a Thai-language citizen-reporting and GIS surveillance app for
-suspected Blackchin Tilapia sightings in Eastern Thailand (ฉะเชิงเทรา, ชลบุรี, ระยอง).
+suspected Blackchin Tilapia sightings in Eastern Thailand (ฉะเชิงเทรา, ชลบุรี, ระยอง). Beyond
+citizen reports, it also runs an automated six-source external-intelligence pipeline
+(news RSS, open government data, iNaturalist) — see [docs/INGESTION.md](./docs/INGESTION.md)
+and the `/sources` observatory.
 
 It was scaffolded from `Kiranism/next-shadcn-dashboard-starter`. The starter's demo
 surface (dashboard, products, users, kanban, chat, AI chat, overview, forms demo, mock
 APIs, RBAC nav) has been removed. The shadcn/Base UI primitives in `src/components/ui`
-are the starter's and should be reused, not rebuilt.
+are the starter's and should be reused, not rebuilt. Some starter dependencies
+(`@dnd-kit/*`, `@tanstack/react-table`, `react-day-picker`, etc.) remain because
+individual scaffolded components (kanban, tables, calendar) are still present in
+`src/components/ui`; periodically re-verify with a repo-wide import search before
+assuming a dependency is dead weight — see CLAUDE.md's Repository Hygiene section.
 
 **Non-negotiable:** no mock data, seeded reports, or hardcoded counts in runtime code. An
 empty database must render an empty UI.
@@ -31,13 +39,21 @@ Clerk 7 · Prisma 6 + PostgreSQL · MapLibre GL JS 6 · Railway.
 ## Structure
 
 ```
-prisma/                    schema + checked-in migration
+prisma/                    schema + checked-in migrations
 public/maplibre/           worker modules copied by postinstall (committed — they must ship in the Docker build context, see Dockerfile)
-scripts/copy-maplibre-worker.mjs
+scripts/
+  copy-maplibre-worker.mjs
+  ingestion/                registry.mjs (source of truth, allowlisted fetch), adapters/{rss,ckan,json-api}, self-test.mjs
+  intel/                    relevance/species gate, locations.mjs, dedupe, priority.mjs, self-test.mjs
+  refresh-intelligence.mjs  orchestrated entry point (db:refresh / db:refresh:prod) — ingest → intel → event resolution
 src/
   app/
-    (app)/                 shell layout + /map /report /about /profile
-    api/reports|profile/   route handlers (thin — logic lives in src/server)
+    (app)/                 shell layout + /map /sources /report /about /profile
+    api/
+      reports|profile/     route handlers (thin — logic lives in src/server)
+      sources/              summary, list, [slug], runs, trace
+      events/priority/      experimental priority ranking
+      observations/public/  map's external-source layer
     auth/                  Clerk sign-in / sign-up
   components/
     layout/                fihdar-sidebar, fihdar-header, page-container
@@ -47,8 +63,12 @@ src/
   features/
     map/                   constants, lib/{waterways,report-layers,load-maplibre}, components
     reports/               api/{types,service,queries}, components, lib/format
+    sources/               data-source observatory, intelligence journey, signal trace, signal flow
+    priority/               priority panel (map)
+    observations/           external-observation query options (map layer)
     profile/components/
-  server/                  auth, storage, report-service, profile-service, validation, responses
+  server/                  auth, storage, report-service, profile-service, sources-service,
+                            observation-service, source-registry, validation, responses
   styles/themes/fihdar.css
   proxy.ts                 clerkMiddleware only — no route matching
 ```
@@ -76,6 +96,10 @@ src/
 - **Language** — Thai is the UI language. Comments and identifiers stay English.
 - **Formatting** — single quotes, JSX single quotes, no trailing comma, 2-space indent
   (`npm run format`).
+- **Source health ≠ signal yield.** A source's technical status (fetch/parse/upsert
+  succeeded) and whether it has ever produced a *relevant* signal are different facts —
+  never collapse them into one label. See `signalCaption()` in
+  `src/features/sources/lib/format.ts` and [docs/INGESTION.md](./docs/INGESTION.md).
 
 ---
 
@@ -102,3 +126,13 @@ npm run typecheck && npm run lint && npm run build
 All three must pass. A green build is not enough on its own — the Clerk 7 and MapLibre
 worker regressions both compiled cleanly and only surfaced at runtime, so exercise the
 page in a browser before claiming a UI change works.
+
+If a change touches ingestion or the intelligence pipeline, also run:
+
+```bash
+npm run ingest:test && npm run intel:test
+```
+
+Both are deterministic, no-network self-tests (see `scripts/ingestion/self-test.mjs`,
+`scripts/intel/self-test.mjs`) — they must pass before any dedupe/relevance/location/
+event-grouping change is considered done.
