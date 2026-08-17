@@ -9,6 +9,20 @@ export const MAP_STYLE_URL =
 /** Eastern Thailand / EEC — the initial surveillance area. */
 export const INITIAL_VIEW = { center: [101.1, 13.15] as [number, number], zoom: 8 };
 
+/**
+ * Thailand's extent, lightly padded: [[west, south], [east, north]].
+ * Passed to MapLibre as `maxBounds`, so the viewport can never be panned off
+ * the country the app actually surveils — the basemap still carries the
+ * neighbouring land, it just cannot be navigated to.
+ */
+export const THAILAND_BOUNDS: [[number, number], [number, number]] = [
+  [96.9, 5.4],
+  [106.1, 20.8]
+];
+
+/** Zoomed out past this the whole region stops being Thailand. */
+export const MIN_ZOOM = 5;
+
 export interface QuickPlace {
   name: string;
   center: [number, number];

@@ -1,0 +1,40 @@
+{
+  "dataset": "Thailand extent (land + territorial waters) — /map basemap mask",
+  "generatedAt": "2026-08-17T10:00:53.497Z",
+  "attribution": "© OpenStreetMap contributors (ODbL)",
+  "source": {
+    "name": "OpenStreetMap relation 2067731 — ประเทศไทย (admin_level=2)",
+    "endpoint": "https://overpass-api.de/api/interpreter",
+    "query": "[out:json][timeout:600];\nrelation[\"boundary\"=\"administrative\"][\"admin_level\"=\"2\"][\"ISO3166-1\"=\"TH\"];\nout geom;",
+    "license": "ODbL 1.0 — © OpenStreetMap contributors. Attribution and share-alike required.",
+    "why": "Same lineage as the OpenMapTiles basemap, so the mask edge matches the boundary rendered underneath it."
+  },
+  "covers": "Thai land plus internal waters and the 12 NM territorial sea. The coastline is inside the extent; the mask edge runs offshore.",
+  "verification": {
+    "method": "Area of (OSM extent ∩ Marine Regions internal waters ∪ 12 NM territorial sea) ÷ area of those waters.",
+    "against": [
+      "https://geo.vliz.be/geoserver/MarineRegions/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=MarineRegions%3Aeez_internal_waters&outputFormat=application%2Fjson&CQL_FILTER=territory1%3D%27Thailand%27",
+      "https://geo.vliz.be/geoserver/MarineRegions/wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=MarineRegions%3Aeez_12nm&outputFormat=application%2Fjson&CQL_FILTER=territory1%3D%27Thailand%27"
+    ],
+    "againstLicense": "Marine Regions (VLIZ) — CC BY 4.0. Used to verify only; not redistributed.",
+    "referenceWaterAreaKm2": 111344,
+    "seaCoverage": 0.9938,
+    "minimumAccepted": 0.9
+  },
+  "excluded": {
+    "eez200nm": "The 200 NM EEZ is deliberately not shown. In the Gulf of Thailand it includes the unresolved Thailand–Cambodia overlapping claims area and the Thailand–Malaysia joint development area; rendering it as one line would assert a settled boundary that does not exist."
+  },
+  "simplification": {
+    "algorithm": "Douglas-Peucker",
+    "toleranceDegrees": 0.00005,
+    "toleranceMetres": 6,
+    "coordinatePrecision": 6,
+    "note": "Sub-pixel below zoom 15."
+  },
+  "stats": {
+    "rings": 1,
+    "rawPoints": 50452,
+    "maskPoints": 38401,
+    "maskHoles": 1
+  }
+}

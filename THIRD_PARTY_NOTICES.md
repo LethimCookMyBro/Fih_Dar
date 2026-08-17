@@ -36,6 +36,29 @@ used and under what terms.
   on **OpenMapTiles**), data **© OpenStreetMap contributors** (ODbL). Attribution
   is rendered live on every map view via MapLibre's `AttributionControl` — see
   `src/features/map/components/map-view.tsx`. Do not remove it.
+- **National extent: OpenStreetMap relation 2067731** (ประเทศไทย,
+  `admin_level=2`), fetched via Overpass — **ODbL, © OpenStreetMap
+  contributors**, attribution and share-alike required. `public/geo/` is a
+  derived database under that licence. The credit is attached to the GeoJSON
+  source in `src/features/map/lib/thailand-extent.ts` so `AttributionControl`
+  renders it even if the basemap style is swapped for a non-OSM one. Do not
+  remove it. OSM is used rather than a generalised world dataset precisely
+  because the basemap is OSM-derived: the mask edge measures within ~6 m of the
+  border the basemap draws, which is sub-pixel below zoom 15.
+- **[Marine Regions](https://www.marineregions.org/)** (VLIZ) — CC BY 4.0.
+  **Used to verify, never redistributed:** `npm run geo:download` checks on every
+  run that Thailand's internal waters and 12 NM territorial sea still fall inside
+  the OSM extent (currently 99.4%) and refuses to write a mask that would grey
+  out Thai waters. No Marine Regions geometry ships in this repository.
+- Regenerate with `npm run geo:download`
+  (`scripts/geo/download-thailand-extent.mjs`), which records source, licence,
+  simplification, and the verification result in
+  `data/thailand-extent.provenance.json`. The 200 NM EEZ is deliberately **not**
+  shown — in the Gulf of Thailand it covers the unresolved Thailand–Cambodia
+  overlapping claims area and the Thailand–Malaysia joint development area, and
+  drawing it as one line would assert a settled boundary that does not exist.
+- **polygon-clipping** — MIT. Build-time only (the download script); used for the
+  boundary/territorial-sea verification.
 
 ## Intelligence pipeline (`scripts/intel/**`)
 

@@ -7,8 +7,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
-import { INITIAL_VIEW, MAP_STYLE_URL } from '@/features/map/constants';
+import { INITIAL_VIEW, MAP_STYLE_URL, MIN_ZOOM, THAILAND_BOUNDS } from '@/features/map/constants';
+import { applyMinimalBasemap } from '@/features/map/lib/basemap';
 import { loadMapLibre } from '@/features/map/lib/load-maplibre';
+import { applyThailandExtent } from '@/features/map/lib/thailand-extent';
 import { applyWaterwayEmphasis } from '@/features/map/lib/waterways';
 
 export interface PickedLocation {
@@ -49,7 +51,9 @@ export function LocationPicker({ value, onChange, ...aria }: LocationPickerProps
         container: containerRef.current,
         style: MAP_STYLE_URL,
         center: INITIAL_VIEW.center,
-        zoom: INITIAL_VIEW.zoom
+        zoom: INITIAL_VIEW.zoom,
+        minZoom: MIN_ZOOM,
+        maxBounds: THAILAND_BOUNDS
       });
       mapRef.current = map;
       map.addControl(new NavigationControl(), 'top-right');
@@ -67,7 +71,11 @@ export function LocationPicker({ value, onChange, ...aria }: LocationPickerProps
 
       map.on('load', () => {
         if (cancelled || !map) return;
+        // Same trim → emphasise → extent order as the main map, so the report
+        // form's picker shows the same confined, hydrography-first Thailand.
+        applyMinimalBasemap(map);
         applyWaterwayEmphasis(map);
+        applyThailandExtent(map);
         setReady(true);
       });
     });

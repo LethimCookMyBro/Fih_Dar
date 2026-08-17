@@ -16,7 +16,13 @@ import type { ExternalObservation } from '@/features/observations/api/types';
 import { PriorityPanel } from '@/features/priority/components/priority-panel';
 import { priorityAreasQueryOptions } from '@/features/priority/api/queries';
 import type { PriorityArea } from '@/features/priority/api/types';
-import { INITIAL_VIEW, MAP_STYLE_URL, type QuickPlace } from '@/features/map/constants';
+import {
+  INITIAL_VIEW,
+  MAP_STYLE_URL,
+  MIN_ZOOM,
+  THAILAND_BOUNDS,
+  type QuickPlace
+} from '@/features/map/constants';
 import { matchesMapFilters, type MapFilters } from '@/features/map/lib/filters';
 import {
   CLUSTER_COUNT_LAYER,
@@ -44,7 +50,9 @@ import {
   updateObservationsData,
   updateReportData
 } from '@/features/map/lib/report-layers';
+import { applyMinimalBasemap } from '@/features/map/lib/basemap';
 import { loadMapLibre } from '@/features/map/lib/load-maplibre';
+import { applyThailandExtent } from '@/features/map/lib/thailand-extent';
 import {
   applyRoadRecession,
   applyWaterwayEmphasis,
@@ -162,6 +170,8 @@ export function MapView() {
           style: MAP_STYLE_URL,
           center: INITIAL_VIEW.center,
           zoom: INITIAL_VIEW.zoom,
+          minZoom: MIN_ZOOM,
+          maxBounds: THAILAND_BOUNDS,
           attributionControl: false
         });
         mapRef.current = map;
@@ -184,8 +194,14 @@ export function MapView() {
         map.on('load', () => {
           if (cancelled || !map) return;
           ready = true;
+          // Order matters: trim the basemap first, then emphasise water, recede
+          // roads, and finally wash out everything outside Thai jurisdiction —
+          // the extent mirrors the waterway emphasis for the sea, so it has to
+          // run after it. FihDar's own layers go on top of all of it.
+          applyMinimalBasemap(map);
           applyWaterwayEmphasis(map);
           applyRoadRecession(map);
+          applyThailandExtent(map);
           addReportLayers(map, toFeatureCollection([]));
           addObservationsLayer(map);
           addEventsLayer(map);

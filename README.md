@@ -175,10 +175,21 @@ style back and re-styles the basemap's own `water` and `waterway` source-layers 
 Keppel. No river geometry is authored by this project; on a style with no hydrography the
 emphasis is simply skipped.
 
+**Minimal hydrography-first basemap.** `src/features/map/lib/basemap.ts` reads the
+loaded style and hides distracting low-signal layers (buildings, POIs, most landuse) so
+waterways, monitoring context, and FihDar layers carry the visual hierarchy.
+`src/features/map/lib/thailand-extent.ts` dims land outside Thailand's territory and
+constrains the default view to the country — the app's jurisdiction. The mask geometry
+is derived from public GADM/OpenStreetMap data; the EEZ is deliberately **excluded** so
+no disputed 200 NM maritime claim is presented as unquestioned jurisdiction. Provenance,
+license, and generation instructions live in `data/thailand-extent.provenance.json` and
+`scripts/geo/download-thailand-extent.mjs`.
+
 Report layers are GeoJSON-driven (clustered points, a selection layer, and a heatmap
 built from verified coordinates). The heatmap is labelled
 *ความหนาแน่นของรายงานที่ยืนยันแล้ว* — report density — not an outbreak area, because no
-analysis supporting that claim exists.
+analysis supporting that claim exists. The 2 km monitoring circles are exactly that:
+monitoring context, never a claim of confirmed biological spread.
 
 ---
 
