@@ -123,3 +123,46 @@ test.describe('/about — team section', () => {
     await expect(page.getByRole('heading', { name: 'สำรวจข้อมูลบนแผนที่' })).toBeInViewport();
   });
 });
+
+test.describe('/about — card-swap idle behavior', () => {
+  test('the card-swap auto-rotate does not run while its section is off-screen', async ({
+    page
+  }) => {
+    // Regression: the ProductCardSwap auto-rotate started its GSAP interval on
+    // mount regardless of visibility, so GSAP's ticker burned ~60fps for a
+    // section the user had scrolled past. The swap must pause while off-screen
+    // (IntersectionObserver) and resume when scrolled into view.
+    await page.goto('/about');
+    // Stay at the top: the swap section ('ทุกมุมมองอยู่ในที่เดียว') is below
+    // the fold at every viewport this suite runs.
+    await page.waitForTimeout(2000);
+
+    const swapHeading = page.getByRole('heading', { name: 'ทุกมุมมองอยู่ในที่เดียว' });
+    await expect(swapHeading).toBeVisible({ timeout: 10_000 });
+    await expect(swapHeading).not.toBeInViewport();
+
+    // GSAP's rAF ticker must be silent off-screen. A short 1500ms window with
+    // a tight bound catches the 60fps ticker (would be ~90 ticks) while
+    // allowing the odd one-off frame from unrelated libraries.
+    const gsapTicks = await page.evaluate(
+      () =>
+        new Promise<number>((resolve) => {
+          const original = window.requestAnimationFrame.bind(window);
+          let calls = 0;
+          window.requestAnimationFrame = (cb) =>
+            original((ts) => {
+              // Count only callbacks that originate from GSAP's ticker (the
+              // stack's second frame names the gsap chunk under Turbopack).
+              const stack = new Error().stack?.split('\n').slice(2, 5).join(' ') ?? '';
+              if (stack.includes('gsap')) calls += 1;
+              cb(ts);
+            });
+          setTimeout(() => {
+            window.requestAnimationFrame = original;
+            resolve(calls);
+          }, 1500);
+        })
+    );
+    expect(gsapTicks).toBeLessThan(10);
+  });
+});

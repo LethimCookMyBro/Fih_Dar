@@ -14,6 +14,7 @@ import React, {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type ReactElement,
   type ReactNode,
   type RefObject
@@ -27,6 +28,13 @@ export interface CardSwapProps {
   verticalDistance?: number;
   delay?: number;
   pauseOnHover?: boolean;
+  /**
+   * When true the auto-rotate interval is stopped and any in-flight swap
+   * timeline is paused (e.g. the section scrolled out of view). Resume by
+   * flipping back to false — the rotation continues from where it paused.
+   * Reduced motion still wins over both states.
+   */
+  paused?: boolean;
   onCardClick?: (idx: number) => void;
   skewAmount?: number;
   easing?: 'linear' | 'elastic';
@@ -82,6 +90,7 @@ export default function CardSwap({
   verticalDistance = 55,
   delay = 5000,
   pauseOnHover = true,
+  paused = false,
   onCardClick,
   skewAmount = 4,
   easing = 'elastic',
@@ -122,7 +131,15 @@ export default function CardSwap({
   const tlRef = useRef<gsap.core.Timeline | null>(null);
   const intervalRef = useRef<number>(0);
   const container = useRef<HTMLDivElement>(null);
+  const swapRef = useRef<() => void>(() => {});
+  const [hoverPaused, setHoverPaused] = useState(false);
 
+  // Hover pause is a real pause of the in-flight timeline; the visibility
+  // `paused` prop pauses the auto-rotate but leaves the current frame intact.
+  // Reduced motion wins over everything (checked in both effects below).
+  const effectivelyPaused = paused || hoverPaused;
+
+  // One-time setup: place the cards, define the swap, attach hover listeners.
   useEffect(() => {
     const total = refs.length;
     if (total === 0) return;
@@ -175,31 +192,54 @@ export default function CardSwap({
         order.current = [...rest, front];
       });
     };
+    swapRef.current = swap;
 
+    // Advance once on mount so the stack is mid-motion immediately, matching
+    // the stock component's first-paint behaviour.
     swap();
-    intervalRef.current = window.setInterval(swap, delay);
 
-    if (pauseOnHover) {
-      const node = container.current;
-      if (!node) return () => clearInterval(intervalRef.current);
-      const pause = () => {
-        tlRef.current?.pause();
-        clearInterval(intervalRef.current);
-      };
-      const resume = () => {
-        tlRef.current?.play();
-        intervalRef.current = window.setInterval(swap, delay);
-      };
-      node.addEventListener('mouseenter', pause);
-      node.addEventListener('mouseleave', resume);
-      return () => {
-        node.removeEventListener('mouseenter', pause);
-        node.removeEventListener('mouseleave', resume);
-        clearInterval(intervalRef.current);
-      };
-    }
-    return () => clearInterval(intervalRef.current);
+    const node = container.current;
+    if (!pauseOnHover || !node) return;
+    const pause = () => {
+      tlRef.current?.pause();
+      setHoverPaused(true);
+    };
+    const resume = () => {
+      tlRef.current?.play();
+      setHoverPaused(false);
+    };
+    node.addEventListener('mouseenter', pause);
+    node.addEventListener('mouseleave', resume);
+    return () => {
+      node.removeEventListener('mouseenter', pause);
+      node.removeEventListener('mouseleave', resume);
+    };
   }, [cardDistance, verticalDistance, delay, pauseOnHover, skewAmount, easing, refs, config]);
+
+  // Auto-rotate interval — the single owner of the timer, so the visibility
+  // pause and the hover pause cannot fight over it. Runs only while the swap
+  // is actually wanted (not paused, not reduced motion).
+  useEffect(() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+
+    if (effectivelyPaused) {
+      tlRef.current?.pause();
+      clearInterval(intervalRef.current);
+      intervalRef.current = 0;
+      return;
+    }
+
+    // Resume an in-flight timeline (visibility scroll-back or mouse leave).
+    tlRef.current?.play();
+    if (intervalRef.current === 0) {
+      intervalRef.current = window.setInterval(() => swapRef.current(), delay);
+    }
+    return () => {
+      clearInterval(intervalRef.current);
+      intervalRef.current = 0;
+    };
+  }, [effectivelyPaused, delay]);
 
   const rendered = childArr.map((child, i) =>
     isValidElement<CardProps>(child)

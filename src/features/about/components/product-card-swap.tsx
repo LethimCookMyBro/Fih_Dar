@@ -5,6 +5,30 @@ import Image from 'next/image';
 
 import CardSwap, { Card } from '@/components/reactbits/card-swap';
 
+/**
+ * True while the swap stack is (at least partly) inside the viewport. The
+ * auto-rotate is a deliberate showcase, but running GSAP's 60fps ticker for
+ * a section the user has scrolled past is pure waste — pause it off-screen.
+ */
+function useInView(ref: React.RefObject<HTMLDivElement | null>) {
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      // A generous rootMargin keeps the swap from stopping the moment the
+      // section's edge touches the viewport edge.
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+
+  return inView;
+}
+
 const VIEWS = [
   { label: 'แผนที่', image: '/about/waterway-detail.jpg', alt: 'มุมมองแผนที่ทางน้ำแบบซูมเข้าของ FihDar' },
   { label: 'เหตุการณ์', image: '/about/event-detail.jpg', alt: 'การ์ดรายละเอียดรายงานการพบบนแผนที่' },
@@ -58,6 +82,7 @@ function useFittedCardSwapSize() {
  */
 export function ProductCardSwap() {
   const fitted = useFittedCardSwapSize();
+  const inView = useInView(fitted.ref);
 
   return (
     <section className='bg-muted/30 border-y'>
@@ -94,6 +119,7 @@ export function ProductCardSwap() {
             easing='linear'
             delay={5000}
             pauseOnHover
+            paused={!inView}
           >
             {VIEWS.map((v) => (
               <Card key={v.label}>
