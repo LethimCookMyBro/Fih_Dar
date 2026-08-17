@@ -94,6 +94,40 @@ test.describe('/map — legend truthfulness', () => {
   });
 });
 
+test.describe('/map — 2km monitoring radius', () => {
+  test('the layer is on by default and its toggle shows/hides the legend explanation', async ({
+    page
+  }) => {
+    await page.goto('/map');
+    await waitForMapReady(page);
+
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    if (isMobile) {
+      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    }
+
+    // On by default: the honest disclaimer copy must already be in the legend.
+    const explanation = page.getByText('ไม่ใช่หลักฐานการแพร่ระบาดที่ยืนยันแล้ว', { exact: false });
+    await expect(explanation).toBeVisible();
+
+    await page.getByRole('button', { name: isMobile ? 'ตัวกรอง' : 'เลเยอร์แผนที่' }).click();
+    const toggle = page.getByRole('checkbox', {
+      name: 'รัศมีเฝ้าระวัง 2 กม. (ไม่ใช่พื้นที่ระบาดที่ยืนยัน)'
+    });
+    await expect(toggle).toBeChecked();
+
+    await toggle.click();
+    await expect(toggle).not.toBeChecked();
+    await page.keyboard.press('Escape');
+    await expect(explanation).toBeHidden();
+
+    await page.getByRole('button', { name: isMobile ? 'ตัวกรอง' : 'เลเยอร์แผนที่' }).click();
+    await toggle.click();
+    await page.keyboard.press('Escape');
+    await expect(explanation).toBeVisible();
+  });
+});
+
 test.describe('/map — legend is collapsible at every breakpoint', () => {
   test('the legend can be collapsed and re-expanded, not just on mobile', async ({ page }) => {
     await page.goto('/map');

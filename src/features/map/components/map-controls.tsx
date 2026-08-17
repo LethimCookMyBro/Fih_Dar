@@ -25,6 +25,7 @@ export type { MapFilters };
 
 export interface MapLayerToggles {
   events: boolean;
+  monitoring: boolean;
   reports: boolean;
   waterways: boolean;
   heatmap: boolean;
@@ -41,6 +42,7 @@ export const DAY_RANGES = [
 
 const LAYER_LABELS: Record<keyof MapLayerToggles, string> = {
   events: 'เหตุการณ์ที่เชื่อมโยง (ทดลอง)',
+  monitoring: 'รัศมีเฝ้าระวัง 2 กม. (ไม่ใช่พื้นที่ระบาดที่ยืนยัน)',
   reports: 'รายงานจากประชาชน (ยืนยันแล้ว)',
   waterways: 'เส้นทางน้ำ',
   heatmap: 'ความหนาแน่นของรายงานจากประชาชน',
@@ -345,6 +347,7 @@ export function MapLegend({
   eventCount,
   eventsTotal,
   eventsVisible,
+  monitoringVisible,
   observationCount,
   observationsVisible
 }: {
@@ -352,6 +355,7 @@ export function MapLegend({
   eventCount: number;
   eventsTotal: number;
   eventsVisible: boolean;
+  monitoringVisible: boolean;
   observationCount: number;
   observationsVisible: boolean;
 }) {
@@ -411,6 +415,15 @@ export function MapLegend({
                 />
                 เหตุการณ์ที่เชื่อมโยง — สีแสดงลำดับความสำคัญ (แดง สูง · เหลือง ปานกลาง · เทา ต่ำ)
               </li>
+              {monitoringVisible && (
+                <li className='flex items-start gap-2.5'>
+                  <span className='bg-destructive/20 border-destructive/50 mt-0.5 size-3 shrink-0 rounded-full border' />
+                  <span>
+                    รัศมีเฝ้าระวัง 2 กม. รอบเหตุการณ์ที่มีพิกัดแน่นอน — เป็นพื้นที่แนะนำให้ตรวจสอบ
+                    ไม่ใช่หลักฐานการแพร่ระบาดที่ยืนยันแล้ว
+                  </span>
+                </li>
+              )}
               <li className='flex items-center gap-2.5'>
                 <span className='bg-primary h-0.5 w-4 shrink-0 rounded' />
                 เส้นทางน้ำจากข้อมูลแผนที่

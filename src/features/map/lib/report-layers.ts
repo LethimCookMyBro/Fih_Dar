@@ -2,6 +2,7 @@ import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 
 import type { Report } from '@/features/reports/api/types';
 import type { PriorityArea } from '@/features/priority/api/types';
+import { circlePolygon } from '@/features/map/lib/geo';
 
 export const REPORTS_SOURCE = 'fihdar-reports';
 export const HEATMAP_SOURCE = 'fihdar-reports-flat';
@@ -17,6 +18,9 @@ export const EVENTS_CLUSTER_LAYER = 'fihdar-events-clusters';
 export const EVENTS_CLUSTER_COUNT_LAYER = 'fihdar-events-cluster-count';
 export const EVENTS_LAYER = 'fihdar-events-point';
 export const EVENTS_SELECTED_LAYER = 'fihdar-events-selected';
+export const MONITORING_SOURCE = 'fihdar-monitoring-radius';
+export const MONITORING_FILL_LAYER = 'fihdar-monitoring-radius-fill';
+export const MONITORING_OUTLINE_LAYER = 'fihdar-monitoring-radius-outline';
 
 export const OBSERVATION_IMAGE = 'fihdar-observation-diamond';
 export const EVENT_IMAGE = 'fihdar-event-triangle';
@@ -35,6 +39,13 @@ const NO_EVENT_SELECTION: ['==', string, string] = ['==', 'slug', '__no_selectio
 const SCORE_HIGH = '#c0392b';
 const SCORE_MEDIUM = '#f59e0b';
 const SCORE_LOW = '#70797d';
+
+/** A real geodesic 2km, not a fixed pixel radius — see features/map/lib/geo.ts.
+ * Only shown from this zoom up: at national/regional zoom, dozens of
+ * overlapping circles would just read as a blob, and clusters already
+ * communicate density there. */
+const MONITORING_RADIUS_METERS = 2000;
+const MONITORING_MIN_ZOOM = 9;
 
 /** Score tiers, used inline as `['step', ['get', prop], SCORE_LOW, 40,
  * SCORE_MEDIUM, 70, SCORE_HIGH]` in each paint property below — TypeScript's
@@ -404,4 +415,72 @@ export function setSelectedEvent(map: MapLibreMap, slug: string | null): void {
   if (!map.getLayer(EVENTS_SELECTED_LAYER)) return;
   const filter: ['==', string, string] = slug ? ['==', 'slug', slug] : NO_EVENT_SELECTION;
   map.setFilter(EVENTS_SELECTED_LAYER, filter);
+}
+
+// --- 2km monitoring radius (honest geographic buffer, EXACT events only) ---
+
+/**
+ * Adds the monitoring-radius source + layers: a real ~2km geodesic circle
+ * (see geo.ts) around each EXACT-coordinate event, tinted by the same score
+ * tier as its marker. Overlapping circles blend additively through normal
+ * fill-opacity stacking — no extra intensity math needed for the "multiple
+ * signals near each other" case. This is an operational visualization, never
+ * a claim of confirmed spread — the legend and layer label say so explicitly.
+ */
+export function addMonitoringLayer(map: MapLibreMap): void {
+  if (map.getSource(MONITORING_SOURCE)) return;
+  const firstSymbol = map.getStyle().layers?.find((layer) => layer.type === 'symbol')?.id;
+
+  map.addSource(MONITORING_SOURCE, {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] }
+  });
+
+  map.addLayer(
+    {
+      id: MONITORING_FILL_LAYER,
+      type: 'fill',
+      source: MONITORING_SOURCE,
+      minzoom: MONITORING_MIN_ZOOM,
+      paint: {
+        'fill-color': ['step', ['get', 'score'], SCORE_LOW, 40, SCORE_MEDIUM, 70, SCORE_HIGH],
+        'fill-opacity': 0.12
+      }
+    },
+    firstSymbol
+  );
+
+  map.addLayer(
+    {
+      id: MONITORING_OUTLINE_LAYER,
+      type: 'line',
+      source: MONITORING_SOURCE,
+      minzoom: MONITORING_MIN_ZOOM,
+      paint: {
+        'line-color': ['step', ['get', 'score'], SCORE_LOW, 40, SCORE_MEDIUM, 70, SCORE_HIGH],
+        'line-opacity': 0.4,
+        'line-width': 1
+      }
+    },
+    firstSymbol
+  );
+}
+
+export function updateMonitoringData(map: MapLibreMap, areas: PriorityArea[]): void {
+  const source = map.getSource(MONITORING_SOURCE) as GeoJSONSource | undefined;
+  if (!source) return;
+  source.setData({
+    type: 'FeatureCollection',
+    features: areas
+      .filter(
+        (area): area is PriorityArea & { coordinate: NonNullable<PriorityArea['coordinate']> } =>
+          area.coordinate !== null
+      )
+      .map((area) => ({
+        type: 'Feature' as const,
+        id: area.slug,
+        geometry: circlePolygon(area.coordinate, MONITORING_RADIUS_METERS),
+        properties: { slug: area.slug, score: area.score }
+      }))
+  });
 }

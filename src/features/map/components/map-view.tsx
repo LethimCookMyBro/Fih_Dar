@@ -26,10 +26,13 @@ import {
   EVENTS_LAYER,
   EVENTS_SELECTED_LAYER,
   HEATMAP_LAYER,
+  MONITORING_FILL_LAYER,
+  MONITORING_OUTLINE_LAYER,
   OBSERVATIONS_LAYER,
   POINT_LAYER,
   SELECTED_LAYER,
   addEventsLayer,
+  addMonitoringLayer,
   addObservationsLayer,
   addReportLayers,
   setLayerVisibility,
@@ -37,11 +40,16 @@ import {
   setSelectedReport,
   toFeatureCollection,
   updateEventsData,
+  updateMonitoringData,
   updateObservationsData,
   updateReportData
 } from '@/features/map/lib/report-layers';
 import { loadMapLibre } from '@/features/map/lib/load-maplibre';
-import { applyWaterwayEmphasis, setWaterwayVisibility } from '@/features/map/lib/waterways';
+import {
+  applyRoadRecession,
+  applyWaterwayEmphasis,
+  setWaterwayVisibility
+} from '@/features/map/lib/waterways';
 import { MapControls, MapLegend, type MapLayerToggles } from './map-controls';
 import { ReportPanel } from './report-panel';
 import { EventPanel } from './event-panel';
@@ -53,6 +61,7 @@ const EVENT_LAYERS = [
   EVENTS_LAYER,
   EVENTS_SELECTED_LAYER
 ];
+const MONITORING_LAYERS = [MONITORING_FILL_LAYER, MONITORING_OUTLINE_LAYER];
 
 function filterReports(reports: Report[], filters: MapFilters): Report[] {
   return reports.filter((report) => matchesMapFilters(filters, report.province, report.observedAt));
@@ -86,6 +95,7 @@ export function MapView() {
   const [filters, setFilters] = React.useState<MapFilters>({ province: 'all', days: 'all' });
   const [layers, setLayers] = React.useState<MapLayerToggles>({
     events: true,
+    monitoring: true,
     reports: true,
     waterways: true,
     heatmap: false,
@@ -175,9 +185,11 @@ export function MapView() {
           if (cancelled || !map) return;
           ready = true;
           applyWaterwayEmphasis(map);
+          applyRoadRecession(map);
           addReportLayers(map, toFeatureCollection([]));
           addObservationsLayer(map);
           addEventsLayer(map);
+          addMonitoringLayer(map);
           setMapReady(true);
         });
       })
@@ -270,6 +282,7 @@ export function MapView() {
     if (!map || !mapReady) return;
     setLayerVisibility(map, REPORT_LAYERS, layers.reports);
     setLayerVisibility(map, EVENT_LAYERS, layers.events);
+    setLayerVisibility(map, MONITORING_LAYERS, layers.monitoring);
     setLayerVisibility(map, [HEATMAP_LAYER], layers.heatmap);
     setLayerVisibility(map, [OBSERVATIONS_LAYER], layers.observations);
     setWaterwayVisibility(map, layers.waterways);
@@ -291,11 +304,13 @@ export function MapView() {
   }, [placedObservations, mapReady]);
 
   // Feed EventCandidates with an exact coordinate into the events layer —
-  // this is the primary operational layer, on by default.
+  // this is the primary operational layer, on by default. The 2km
+  // monitoring radius is drawn around the same exact-coordinate set.
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
     updateEventsData(map, placedEventAreas);
+    updateMonitoringData(map, placedEventAreas);
   }, [placedEventAreas, mapReady]);
 
   // Highlight the selected report and centre on it.
@@ -425,6 +440,7 @@ export function MapView() {
             eventCount={placedEventAreas.length}
             eventsTotal={eventAreas.length}
             eventsVisible={layers.events}
+            monitoringVisible={layers.monitoring}
             observationCount={placedObservations.length}
             observationsVisible={layers.observations}
           />
