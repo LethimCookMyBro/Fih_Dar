@@ -34,7 +34,6 @@
     "waterways:graph": "node scripts/intel/waterways/graph.mjs"
   },
   "dependencies": {
-    "@ai-sdk/react": "^4.0.47",
     "@base-ui/react": "^1.6.0",
     "@clerk/localizations": "^3.37.8",
     "@clerk/nextjs": "^7.3.5",
@@ -49,7 +48,6 @@
     "@react-three/postprocessing": "^3.0.5",
     "@react-three/rapier": "^2.2.0",
     "@sentry/nextjs": "^10.45.0",
-    "@shadcn/helpers": "^0.1.0",
     "@shadcn/react": "^0.2.1",
     "@tabler/icons-react": "^3.40.0",
     "@tailwindcss/postcss": "^4.2.2",
@@ -58,7 +56,6 @@
     "@tanstack/react-query-devtools": "^5.95.2",
     "@tanstack/react-table": "^8.21.3",
     "@types/three": "^0.185.4",
-    "ai": "^7.0.44",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -69,9 +66,7 @@
     "graphology-shortest-path": "^2.1.0",
     "gsap": "^3.15.0",
     "input-otp": "^1.4.2",
-    "kbar": "^0.1.0-beta.48",
     "maplibre-gl": "^6.3.0",
-    "match-sorter": "^8.2.0",
     "meshline": "^3.3.1",
     "minhash": "^0.0.9",
     "motion": "^11.18.2",
@@ -87,11 +82,9 @@
     "react-dom": "19.2.4",
     "react-dropzone": "^14.4.1",
     "react-resizable-panels": "^4.12.2",
-    "react-responsive": "^10.0.1",
     "recharts": "3.8.0",
     "sharp": "^0.35.3",
     "sonner": "^1.7.4",
-    "sort-by": "^1.2.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
     "tailwindcss-animate": "^1.0.7",
@@ -99,10 +92,7 @@
     "three": "^0.185.1",
     "typescript": "5.7.2",
     "uuid": "^11.1.0",
-    "vaul": "^1.1.2",
-    "xxhashjs": "^0.2.2",
-    "zod": "^4.3.6",
-    "zustand": "^5.0.12"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

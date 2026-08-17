@@ -20,14 +20,14 @@ used and under what terms.
 - **Tailwind CSS**, `tailwind-merge`, `tailwindcss-animate`, `class-variance-authority` — MIT
 - **@tabler/icons-react** — MIT
 - **Motion** (`motion`) — MIT
-- **Radix-derived primitives via Base UI**, `vaul`, `cmdk`, `sonner`, `kbar`, `embla-carousel-react`, `react-resizable-panels`, `react-day-picker`, `input-otp` — MIT
+- **Radix-derived primitives via Base UI**, `cmdk`, `sonner`, `embla-carousel-react`, `react-resizable-panels`, `react-day-picker`, `input-otp` — MIT
 
 ## Data / forms / state
 
 - **@tanstack/react-query**, **@tanstack/react-form**, **@tanstack/react-table** — MIT
 - **Zod** — MIT
 - **Prisma**, **@prisma/client** — Apache-2.0
-- **zustand**, **nuqs**, **date-fns**, `match-sorter`, `sort-by`, `uuid` — MIT
+- **nuqs**, **date-fns**, `uuid` — MIT
 
 ## Map
 
@@ -48,7 +48,7 @@ used and under what terms.
   used only for deterministic text matching; no coordinates are derived from it.
 - **`fuzzball`** — fuzzy string matching (RapidFuzz-style), MIT.
 - **`minhash`** — MinHash/LSH near-duplicate detection, MIT.
-- **`xxhashjs`**, **`graphology`**, **`graphology-shortest-path`** — MIT.
+- **`graphology`**, **`graphology-shortest-path`** — MIT.
 - External observations themselves (news articles, official notices) are
   ingested for classification/analysis under fair-use/reporting norms as
   factual, publicly published information; FihDar stores title, description,

@@ -42,7 +42,7 @@ npm run waterways:graph       # offline connectivity graph prototype
 
 ## 2. Dependencies added
 
-`fuzzball`, `minhash`, `xxhashjs`, `thai-address-database`, `graphology`,
+`fuzzball`, `minhash`, `thai-address-database`, `graphology`,
 `graphology-shortest-path`, `@huggingface/transformers`. All runtime-optional:
 `db:intel` degrades to keyword-only relevance when the model is unavailable.
 
