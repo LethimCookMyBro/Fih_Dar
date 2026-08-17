@@ -56,7 +56,7 @@ const HOLO_MASK = `data:image/svg+xml,${encodeURIComponent(
 export function AboutTeam() {
   return (
     <section className='border-t'>
-      <div className='mx-auto w-full max-w-[1300px] px-4 py-20 sm:px-6 md:py-24 lg:px-8'>
+      <div className='mx-auto w-full max-w-[1400px] px-4 py-20 sm:px-6 md:py-24 lg:px-8'>
         <div className='text-center'>
           <p className='text-muted-foreground font-mono text-[0.75rem] tracking-[0.18em] uppercase'>
             ทีมผู้พัฒนา
@@ -64,7 +64,7 @@ export function AboutTeam() {
           <h2 className='mt-3 text-3xl font-semibold tracking-tight md:text-4xl'>ทีมนกพิราบก้าวร้าว</h2>
         </div>
 
-        <ul className='mt-14 grid grid-cols-1 place-items-center gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6'>
+        <ul className='mt-16 grid grid-cols-1 place-items-center gap-y-12 gap-x-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-8'>
           {TEAM.map((member) => (
             <li key={member.name}>
               <ProfileCard

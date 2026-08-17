@@ -458,7 +458,11 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   return (
     <div
       ref={wrapRef}
-      className={`relative touch-none ${className}`.trim()}
+      // ponytail: no touch-none here — this card only tilts via pointermove (desktop
+      // hover) or deviceorientation (mobile, gyroscope), never a touch drag, so
+      // touch-action: none had no functional purpose and only blocked page scroll
+      // over the card on mobile.
+      className={`relative ${className}`.trim()}
       style={
         {
           perspective: '500px',

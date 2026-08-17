@@ -94,6 +94,31 @@ test.describe('/map — legend truthfulness', () => {
   });
 });
 
+test.describe('/map — legend is collapsible at every breakpoint', () => {
+  test('the legend can be collapsed and re-expanded, not just on mobile', async ({ page }) => {
+    await page.goto('/map');
+    await waitForMapReady(page);
+
+    // Below md the legend already starts collapsed (asserted elsewhere); this
+    // test is about the fix that desktop/tablet used to have no way to put
+    // the panel away at all.
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    if (isMobile) {
+      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    }
+
+    const legendHeading = page.getByText('คำอธิบายสัญลักษณ์');
+    await expect(legendHeading).toBeVisible();
+
+    await page.getByRole('button', { name: 'ซ่อนคำอธิบายสัญลักษณ์' }).click();
+    await expect(legendHeading).toBeHidden();
+    await expect(page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    await expect(legendHeading).toBeVisible();
+  });
+});
+
 test.describe('/map — operational events are discoverable by default', () => {
   test('the events layer is on out of the box, without opening any hidden layer toggle', async ({
     page

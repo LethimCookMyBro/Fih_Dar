@@ -342,7 +342,7 @@ export function MapView() {
             <Skeleton className='h-11 w-28 rounded-(--nav-radius)' />
             <Skeleton className='hidden h-11 w-40 rounded-(--nav-radius) md:block' />
           </div>
-          <Skeleton className='absolute bottom-3 start-3 size-11 rounded-(--nav-radius) md:h-40 md:w-60 md:rounded-xl' />
+          <Skeleton className='absolute bottom-3 start-3 size-11 rounded-(--nav-radius) md:bottom-4 md:start-4' />
           {/* Visible, not just sr-only. Tile loading can take several seconds on
               a slow link, and without this the user stares at a grey void. */}
           <div className='absolute inset-0 flex items-center justify-center'>

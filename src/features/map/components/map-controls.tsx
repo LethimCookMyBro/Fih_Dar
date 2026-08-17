@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -327,8 +328,13 @@ export function MapControls({
 }
 
 /**
- * Legend. Collapsed to a single icon button on mobile so it never competes with
- * the map on a 390px screen; open by default from md up where there is room.
+ * Legend. A single icon button at every breakpoint — collapsed by default on
+ * mobile (390px has no room to spare) and expanded by default from md up,
+ * decided after mount so the first client render still matches the server's
+ * mobile-closed markup (same pattern as Reveal). Always collapsible: on a
+ * desktop the panel used to be permanently open with no way to put it away,
+ * which is what read as clunky — now it opens/closes with the same restrained
+ * opacity + rise used by PriorityPanel/EventPanel elsewhere on this map.
  */
 export function MapLegend({
   reportCount,
@@ -346,71 +352,88 @@ export function MapLegend({
   observationsVisible: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
+  const reduceMotion = useReducedMotion();
   const eventsWithoutCoordinate = eventsTotal - eventCount;
+  const visibleMarkerCount =
+    reportCount + (eventsVisible ? eventCount : 0) + (observationsVisible ? observationCount : 0);
+
+  React.useEffect(() => {
+    const mql = window.matchMedia('(min-width: 768px)');
+    setOpen(mql.matches);
+  }, []);
 
   return (
-    <>
+    <div className='absolute bottom-3 start-3 z-10 md:bottom-4 md:start-4'>
       <Button
         variant='outline'
         size='icon'
         aria-label={open ? 'ซ่อนคำอธิบายสัญลักษณ์' : 'แสดงคำอธิบายสัญลักษณ์'}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={cn(
-          'absolute bottom-3 start-3 z-10 size-11 rounded-(--nav-radius) md:hidden',
-          FLOATING_SURFACE
-        )}
+        className={cn('relative size-11 rounded-(--nav-radius)', FLOATING_SURFACE)}
       >
         {open ? <Icons.close /> : <Icons.info />}
+        {!open && visibleMarkerCount > 0 && (
+          <span className='bg-primary text-primary-foreground absolute -end-1.5 -top-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[0.625rem] font-semibold tabular-nums'>
+            {visibleMarkerCount}
+          </span>
+        )}
       </Button>
 
-      <div
-        className={cn(
-          'absolute bottom-3 start-3 z-10 w-64 rounded-xl p-3 md:bottom-4 md:start-4 md:block',
-          FLOATING_SURFACE,
-          open ? 'block' : 'hidden'
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+            style={{ transformOrigin: 'bottom left' }}
+            className={cn('absolute bottom-13 start-0 w-64 rounded-xl p-3', FLOATING_SURFACE)}
+          >
+            <p className='mb-2 text-[0.8125rem] font-semibold'>คำอธิบายสัญลักษณ์</p>
+            <ul className='space-y-2 text-[0.8125rem]'>
+              <li className='flex items-center gap-2.5'>
+                <span className='bg-primary size-3 shrink-0 rounded-full ring-2 ring-white' />
+                รายงานจากประชาชน (ยืนยันแล้ว)
+              </li>
+              <li className='flex items-center gap-2.5'>
+                <span className='bg-primary ring-primary/40 size-3 shrink-0 rounded-full ring-4' />
+                กลุ่มรายงาน / รายงานที่เลือก
+              </li>
+              <li className='flex items-center gap-2.5'>
+                <span
+                  className='size-0 shrink-0 border-x-[5px] border-b-[9px] border-x-transparent border-b-destructive'
+                  aria-hidden
+                />
+                เหตุการณ์ที่เชื่อมโยง — สีแสดงลำดับความสำคัญ (แดง สูง · เหลือง ปานกลาง · เทา ต่ำ)
+              </li>
+              <li className='flex items-center gap-2.5'>
+                <span className='bg-primary h-0.5 w-4 shrink-0 rounded' />
+                เส้นทางน้ำจากข้อมูลแผนที่
+              </li>
+              {observationsVisible && (
+                <li className='flex items-center gap-2.5'>
+                  <span className='bg-brand size-2.5 shrink-0 rotate-45 rounded-[2px] ring-2 ring-white' />
+                  สัญญาณดิบจากแหล่งภายนอก (ยังไม่จัดกลุ่มเป็นเหตุการณ์)
+                </li>
+              )}
+            </ul>
+            <div className='text-muted-foreground border-border mt-3 space-y-0.5 border-t pt-2 text-[0.8125rem] tabular-nums'>
+              <p>แสดง {reportCount} รายงานจากประชาชน</p>
+              {eventsVisible && (
+                <p>
+                  + {eventCount} เหตุการณ์ที่มีพิกัดแน่นอน จาก {eventsTotal} เหตุการณ์ทั้งหมด
+                  {eventsWithoutCoordinate > 0 &&
+                    ` (อีก ${eventsWithoutCoordinate} รายการดูได้ที่ "อันดับพื้นที่")`}
+                </p>
+              )}
+              {observationsVisible && (
+                <p>+ {observationCount} สัญญาณดิบจากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)</p>
+              )}
+            </div>
+          </motion.div>
         )}
-      >
-        <p className='mb-2 text-[0.8125rem] font-semibold'>คำอธิบายสัญลักษณ์</p>
-        <ul className='space-y-2 text-[0.8125rem]'>
-          <li className='flex items-center gap-2.5'>
-            <span className='bg-primary size-3 shrink-0 rounded-full ring-2 ring-white' />
-            รายงานจากประชาชน (ยืนยันแล้ว)
-          </li>
-          <li className='flex items-center gap-2.5'>
-            <span className='bg-primary ring-primary/40 size-3 shrink-0 rounded-full ring-4' />
-            กลุ่มรายงาน / รายงานที่เลือก
-          </li>
-          <li className='flex items-center gap-2.5'>
-            <span
-              className='size-0 shrink-0 border-x-[5px] border-b-[9px] border-x-transparent border-b-destructive'
-              aria-hidden
-            />
-            เหตุการณ์ที่เชื่อมโยง — สีแสดงลำดับความสำคัญ (แดง สูง · เหลือง ปานกลาง · เทา ต่ำ)
-          </li>
-          <li className='flex items-center gap-2.5'>
-            <span className='bg-primary h-0.5 w-4 shrink-0 rounded' />
-            เส้นทางน้ำจากข้อมูลแผนที่
-          </li>
-          {observationsVisible && (
-            <li className='flex items-center gap-2.5'>
-              <span className='bg-brand size-2.5 shrink-0 rotate-45 rounded-[2px] ring-2 ring-white' />
-              สัญญาณดิบจากแหล่งภายนอก (ยังไม่จัดกลุ่มเป็นเหตุการณ์)
-            </li>
-          )}
-        </ul>
-        <div className='text-muted-foreground border-border mt-3 space-y-0.5 border-t pt-2 text-[0.8125rem] tabular-nums'>
-          <p>แสดง {reportCount} รายงานจากประชาชน</p>
-          {eventsVisible && (
-            <p>
-              + {eventCount} เหตุการณ์ที่มีพิกัดแน่นอน จาก {eventsTotal} เหตุการณ์ทั้งหมด
-              {eventsWithoutCoordinate > 0 &&
-                ` (อีก ${eventsWithoutCoordinate} รายการดูได้ที่ "อันดับพื้นที่")`}
-            </p>
-          )}
-          {observationsVisible && <p>+ {observationCount} สัญญาณดิบจากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)</p>}
-        </div>
-      </div>
-    </>
+      </AnimatePresence>
+    </div>
   );
 }
