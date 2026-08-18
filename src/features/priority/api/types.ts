@@ -5,6 +5,26 @@ export interface PriorityBreakdownEntry {
   [key: string]: unknown;
 }
 
+/**
+ * HIGH/MEDIUM/LOW/UNKNOWN — never a fabricated percentage, and never a
+ * calibrated statistical probability. See scripts/intel/confidence.mjs for
+ * the deterministic rule behind each dimension.
+ */
+export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
+
+export interface EvidenceConfidence {
+  /** Heuristic keyword/semantic evidence strength — never a confirmed field identification. */
+  species: ConfidenceLevel;
+  location: ConfidenceLevel;
+  time: ConfidenceLevel;
+  /**
+   * How many independent outlets corroborate the event (evidence diversity).
+   * Deliberately NOT named "provenance" — this pipeline has no chain-of-custody
+   * signal for external observations to back that claim.
+   */
+  sourceCorroboration: ConfidenceLevel;
+}
+
 export interface PriorityArea {
   slug: string;
   kind: string | null;
@@ -22,6 +42,7 @@ export interface PriorityArea {
     location: PriorityBreakdownEntry & { precision: string };
   };
   independentSourceCount: number;
+  confidence: EvidenceConfidence;
   sources: string[];
   members: {
     title: string;

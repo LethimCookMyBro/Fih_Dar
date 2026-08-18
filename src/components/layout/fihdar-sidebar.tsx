@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { useClerk, useUser } from '@clerk/nextjs';
 
 import { Icons } from '@/components/icons';
@@ -21,6 +22,7 @@ import {
   useSidebar
 } from '@/components/ui/sidebar';
 import { navGroups } from '@/config/nav-config';
+import { profileQueryOptions } from '@/features/reports/api/queries';
 
 function BrandMark() {
   return (
@@ -58,7 +60,13 @@ export function FihDarSidebar() {
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
   const { setOpenMobile } = useSidebar();
-  const items = navGroups.flatMap((group) => group.items);
+  const { data: profileData } = useQuery({
+    ...profileQueryOptions(),
+    enabled: isLoaded && isSignedIn
+  });
+  const items = navGroups
+    .flatMap((group) => group.items)
+    .filter((item) => !item.showIfOfficer || profileData?.isOfficer === true);
 
   useCollapseOnTablet();
 

@@ -11,6 +11,7 @@ import {
   publisherOf,
   PRIORITY_VERSION
 } from '../../scripts/intel/priority.mjs';
+import { deriveConfidence } from '../../scripts/intel/confidence.mjs';
 
 const LOCATION_PRECISION_RANK = [
   'UNKNOWN',
@@ -104,7 +105,10 @@ export async function listPriorityAreas() {
         sourceUrl: m.sourceUrl,
         title: m.title,
         publishedAt: m.publishedAt,
-        duplicateOfId: m.duplicateOfId
+        duplicateOfId: m.duplicateOfId,
+        // Relevance evidence, kept only long enough to derive species
+        // confidence below — never re-exposed itself in the API response.
+        evidence: m.evidence as { finalVerdict?: { reason?: string } } | null
       }))
     };
   });
@@ -133,6 +137,10 @@ export async function listPriorityAreas() {
         score: priority.score,
         breakdown: priority.breakdown,
         independentSourceCount: priority.independentSourceCount,
+        // Multi-dimensional evidence — see confidence.mjs. Deliberately kept
+        // separate from `score`: species/location/time/provenance can (and
+        // do) disagree, and collapsing them into one number would hide that.
+        confidence: deriveConfidence(event, priority),
         sources: [...new Set(event.members.map((m) => publisherOf(m.title, m.sourceName)))],
         members: event.members.map((m) => ({
           title: m.title,

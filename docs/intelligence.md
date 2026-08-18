@@ -249,7 +249,91 @@ manual/scheduled CLI job — never in the web request path.
   verified with a sabotaged endpoint).
 - RAW rows remain fully usable without any enrichment.
 
-## 17. Deferred / next steps
+## 17. Automatic reassessment
+
+An acted-on report is reopened when a **newer** external observation matches it.
+The hook runs inside `runIntelligence()` (`scripts/intel/process.mjs`), after
+event-candidate persistence, and only over this run's freshly relevant signals
+plus acted-on reports (`scripts/intel/reassess.mjs`):
+
+- Trigger statuses: `MONITORING`, `ACTION_TAKEN`, `VERIFIED`, `FIELD_CHECKED`
+  (`REASSESSMENT_TRIGGER_STATUSES`). `REASSESSMENT` itself is excluded.
+- Matching rule: report must have a normalized province; the signal province
+  must equal the report province; when both report and signal carry a district
+  they must agree (district is never relaxed to province).
+- Recency gate: the signal's REAL event time — `publishedAt` when known, falling
+  back to `scrapedAt` only when `publishedAt` is unavailable — must be newer
+  than the report's **last field visit** (`MAX(ReportFieldAction.createdAt)`).
+  `scrapedAt` alone (ingestion time) is never sufficient: an old article can be
+  scraped long after the underlying sighting, and must not look like a fresh
+  signal. The report's `updatedAt` is deliberately NOT the anchor either — it
+  is bumped by any write to the row (e.g. an operational decision — see §19),
+  none of which constitute "an officer already re-checked this in the field".
+- Idempotence: a report is skipped when `reassessmentTrigger.observationId`
+  already equals the candidate observation id, so `--all` re-runs do not match
+  twice; once matched, the report leaves `REASSESSMENT_TRIGGER_STATUSES`
+  (moves to `REASSESSMENT`) and cannot be matched again until an officer acts.
+- Effect: `status → REASSESSMENT` plus a `reassessmentTrigger` JSON object
+  (`observationId`, `matchedAt`, `matchedProvince`, `matchedDistrict`). No
+  `ReportFieldAction` is fabricated, and the report is **not** linked into
+  `EventCandidate` (see §18).
+- A manual reopen (`POST /api/reports/[id]/reassess`, an officer's own call
+  with a reason, not the heuristic above) uses a broader eligible-status set —
+  any status except `PENDING` (nothing to reassess yet) and `REASSESSMENT`
+  (already reopened) — and writes the same `reassessmentTrigger` shape with
+  `source: 'MANUAL'` instead of an observation id. It never creates a
+  `ReportFieldAction` either.
+
+Schema: `SightingReport.reassessmentTrigger Json?` (migration
+`20260818120000_add_report_reassessment_trigger`). An officer keeps full control
+over the reopened report — the automatic path only surfaces it again for review.
+
+## 18. Pre-field operational decision (DISPATCH / MONITOR / DEFER)
+
+Separate from both automatic reassessment and `ReportFieldAction` (§17, which
+is a POST-visit result): `ReportDecision` is a PRE-FIELD triage call —
+`DISPATCH` / `MONITOR` / `DEFER` — recorded via `POST /api/reports/[id]/decision`
+(officer-only, `src/server/report-service.ts#recordOperationalDecision`).
+
+- Never changes `ReportStatus` and never creates a `ReportFieldAction` — a
+  decision to dispatch a team is not itself a field visit.
+- `SightingReport.operationalDecision` is a denormalized "current value" cache
+  for cheap list display; `ReportDecision` rows are the append-only audit trail
+  (actor, decision, reason, `previousDecision`, timestamp) and are never
+  updated or deleted.
+- Citizens cannot call this endpoint — `requireOfficer()` is enforced
+  server-side, independent of any UI affordance.
+
+## 19. Multi-dimensional evidence confidence
+
+`scripts/intel/confidence.mjs`, surfaced on each `/api/events/priority` area as
+`confidence: { species, location, time, sourceCorroboration }` (categorical
+`HIGH`/`MEDIUM`/`LOW`/`UNKNOWN`). Deliberately additive — reuses numbers
+`priority.mjs` already computes rather than a second scoring model, and never
+retunes priority.mjs's frozen weights.
+
+- **species** — heuristic keyword/semantic evidence STRENGTH from
+  `relevance.mjs` (HIGH = direct keyword match, MEDIUM = only the
+  semantic-similarity upgrade applied). This is **never** a field-confirmed
+  species identification or a calibrated classification probability.
+- **location** — bucketed from the same `LOCATION_PRECISION_SCORE` tiers the
+  priority score's location component already uses.
+- **time** — bucketed from priority.mjs's own recency score; `ageDays === null`
+  (no `publishedAt` ever recorded) stays `UNKNOWN` rather than being folded
+  into `LOW`, since "no known date" and "old but dated" are different facts.
+- **sourceCorroboration** — bucketed from `independentSourceCount` (already
+  deduped past syndication/Google-News wrappers). Named deliberately NOT
+  "provenance": this measures evidence DIVERSITY (how many independent
+  outlets), not chain-of-custody (contrast `ImageProvenance` on citizen
+  reports, which IS a real provenance signal). If a genuine provenance signal
+  is added for external observations later, it should be a fifth dimension,
+  not a repurposing of this one.
+
+None of the four dimensions are calibrated statistical probabilities — every
+rule is a deterministic, documented bucketing of an existing heuristic or
+already-computed number, never a newly-invented threshold.
+
+## 20. Deferred / next steps
 
 - **HydroRIVERS basin-scale network** (needs shapefile tooling; prototype uses
   OSM).

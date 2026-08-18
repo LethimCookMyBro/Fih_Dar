@@ -3,7 +3,9 @@ import 'server-only';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 
-import { CurrentClerkUser, requireCurrentClerkUser } from './auth';
+import type { CurrentClerkUser } from './auth';
+import { requireCurrentClerkUser } from './auth';
+import { isOfficer } from './authorization';
 import { AuthServiceError } from './errors';
 import { REPORT_PROVINCES } from './report-validation';
 
@@ -66,6 +68,15 @@ export async function getOrCreateCurrentProfile(context?: CurrentClerkUser) {
     select: profileSelect
   });
   return profile;
+}
+
+export async function getCurrentProfile(context?: CurrentClerkUser) {
+  const current = context ?? (await requireCurrentClerkUser());
+  const profile = await getOrCreateCurrentProfile(current);
+  return {
+    profile,
+    isOfficer: isOfficer(current.userId)
+  };
 }
 
 export async function updateCurrentProfile(input: unknown, context?: CurrentClerkUser) {

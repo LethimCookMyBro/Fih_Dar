@@ -20,6 +20,8 @@ export interface NavItem {
   isActive?: boolean;
   items?: NavItem[];
   access?: PermissionCheck;
+  /** Visible only to allowlisted officers (field operations workbench). */
+  showIfOfficer?: boolean;
 }
 
 export interface NavGroup {

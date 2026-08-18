@@ -1,6 +1,106 @@
 import { z } from 'zod';
 
-export const REPORT_PROVINCES = ['ฉะเชิงเทรา', 'ชลบุรี', 'ระยอง'] as const;
+// Canonical Thai province list (77) — decoded from the `thai-address-database`
+// package's administrative reference, the same source the intelligence pipeline
+// normalizes external observations against, so report and event province
+// strings stay consistent. Data intake is nationwide; the EEC set below is the
+// operational-pilot scope, a separate fact that is never folded into intake.
+export const EEC_PILOT_PROVINCES = ['ฉะเชิงเทรา', 'ชลบุรี', 'ระยอง'] as const;
+
+export const REPORT_PROVINCES = [
+  'กระบี่',
+  'กรุงเทพมหานคร',
+  'กาญจนบุรี',
+  'กาฬสินธุ์',
+  'กำแพงเพชร',
+  'ขอนแก่น',
+  'จันทบุรี',
+  'ฉะเชิงเทรา',
+  'ชลบุรี',
+  'ชัยนาท',
+  'ชัยภูมิ',
+  'ชุมพร',
+  'ตรัง',
+  'ตราด',
+  'ตาก',
+  'นครนายก',
+  'นครปฐม',
+  'นครพนม',
+  'นครราชสีมา',
+  'นครศรีธรรมราช',
+  'นครสวรรค์',
+  'นนทบุรี',
+  'นราธิวาส',
+  'น่าน',
+  'บึงกาฬ',
+  'บุรีรัมย์',
+  'ปทุมธานี',
+  'ประจวบคีรีขันธ์',
+  'ปราจีนบุรี',
+  'ปัตตานี',
+  'พระนครศรีอยุธยา',
+  'พะเยา',
+  'พังงา',
+  'พัทลุง',
+  'พิจิตร',
+  'พิษณุโลก',
+  'ภูเก็ต',
+  'มหาสารคาม',
+  'มุกดาหาร',
+  'ยะลา',
+  'ยโสธร',
+  'ระนอง',
+  'ระยอง',
+  'ราชบุรี',
+  'ร้อยเอ็ด',
+  'ลพบุรี',
+  'ลำปาง',
+  'ลำพูน',
+  'ศรีสะเกษ',
+  'สกลนคร',
+  'สงขลา',
+  'สตูล',
+  'สมุทรปราการ',
+  'สมุทรสงคราม',
+  'สมุทรสาคร',
+  'สระบุรี',
+  'สระแก้ว',
+  'สิงห์บุรี',
+  'สุพรรณบุรี',
+  'สุราษฎร์ธานี',
+  'สุรินทร์',
+  'สุโขทัย',
+  'หนองคาย',
+  'หนองบัวลำภู',
+  'อำนาจเจริญ',
+  'อุดรธานี',
+  'อุตรดิตถ์',
+  'อุทัยธานี',
+  'อุบลราชธานี',
+  'อ่างทอง',
+  'เชียงราย',
+  'เชียงใหม่',
+  'เพชรบุรี',
+  'เพชรบูรณ์',
+  'เลย',
+  'แพร่',
+  'แม่ฮ่องสอน'
+] as const;
+
+// Location precision uses the existing LocationPrecision enum shared with the
+// intelligence pipeline — no duplicate model. EXACT only when the reporter
+// gives a reliable point; anything coarser is declared, never inferred.
+export const REPORT_LOCATION_PRECISIONS = [
+  'EXACT',
+  'WATERBODY',
+  'SUBDISTRICT',
+  'DISTRICT',
+  'PROVINCE',
+  'UNKNOWN'
+] as const;
+
+export const PHOTO_LOCATION_RELATIONS = ['SAME', 'DIFFERENT', 'UNKNOWN'] as const;
+
 export const REPORT_QUANTITY_RANGES = [
   'ONE',
   'TWO_TO_FIVE',
@@ -42,6 +142,8 @@ export const reportMetadataSchema = z
     district: z.string().trim().max(120).nullable(),
     subdistrict: z.string().trim().max(120).nullable(),
     locationDescription: z.string().trim().max(500).nullable(),
+    locationPrecision: z.enum(REPORT_LOCATION_PRECISIONS),
+    photoLocationRelation: z.enum(PHOTO_LOCATION_RELATIONS),
     observedAt: observedAtField,
     quantityRange: z.enum(REPORT_QUANTITY_RANGES),
     note: z.string().trim().max(1000).nullable(),
@@ -89,6 +191,8 @@ export async function parseReportFormData(form: FormData): Promise<{
     district: optionalFormText(form, 'district'),
     subdistrict: optionalFormText(form, 'subdistrict'),
     locationDescription: optionalFormText(form, 'locationDescription'),
+    locationPrecision: optionalFormText(form, 'locationPrecision') ?? 'UNKNOWN',
+    photoLocationRelation: optionalFormText(form, 'photoLocationRelation') ?? 'UNKNOWN',
     observedAt: formText(form, 'observedAt'),
     quantityRange: formText(form, 'quantityRange'),
     note: optionalFormText(form, 'note'),

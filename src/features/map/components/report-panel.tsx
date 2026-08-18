@@ -6,7 +6,11 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { ReportStatusBadge } from '@/features/reports/components/report-status-badge';
-import { REPORT_QUANTITY_RANGE_LABELS, type Report } from '@/features/reports/api/types';
+import {
+  LOCATION_PRECISION_LABELS,
+  REPORT_QUANTITY_RANGE_LABELS,
+  type Report
+} from '@/features/reports/api/types';
 import { formatThaiDate } from '@/features/reports/lib/format';
 
 interface ReportPanelProps {
@@ -95,6 +99,18 @@ export function ReportPanel({ report, onClose }: ReportPanelProps) {
             <dl className='divide-border mt-4 divide-y'>
               <Row label='จังหวัด' value={report.province} />
               {report.district && <Row label='อำเภอ' value={report.district} />}
+              {report.locationPrecision && report.locationPrecision !== 'EXACT' && (
+                <Row
+                  label='ความแม่นยำ'
+                  value={
+                    <span className='inline-flex items-center gap-1.5'>
+                      <Icons.info className='size-3.5' aria-hidden />
+                      {LOCATION_PRECISION_LABELS[report.locationPrecision] ??
+                        report.locationPrecision}
+                    </span>
+                  }
+                />
+              )}
               <Row label='วันที่พบ' value={formatThaiDate(report.observedAt)} />
               <Row
                 label='จำนวนโดยประมาณ'

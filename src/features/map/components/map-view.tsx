@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 
@@ -98,8 +99,13 @@ export function MapView() {
   // Incrementing this remounts the map — the retry path re-runs the whole
   // lifecycle (worker, style, layers) instead of a full page reload.
   const [attempt, setAttempt] = React.useState(0);
+  // Deep link from /ops's "ดูบนแผนที่" (e.g. /map?event=<slug>) — read once on
+  // mount; the map's own click/selection handling owns it after that.
+  const searchParams = useSearchParams();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [selectedEventSlug, setSelectedEventSlug] = React.useState<string | null>(null);
+  const [selectedEventSlug, setSelectedEventSlug] = React.useState<string | null>(() =>
+    searchParams.get('event')
+  );
   const [filters, setFilters] = React.useState<MapFilters>({ provinces: [], days: 'all' });
   const [layers, setLayers] = React.useState<MapLayerToggles>({
     events: true,

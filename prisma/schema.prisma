@@ -15,6 +15,29 @@ enum ReportStatus {
   PENDING
   VERIFIED
   REJECTED
+  // Post-review operational states set from recorded field actions:
+  // FIELD_CHECKED — a field visit happened but found nothing / could not access
+  // FIELD_CONFIRMED — a field visit confirmed the sighting (distinct from desk VERIFIED)
+  // ACTION_TAKEN — control action carried out
+  // MONITORING — follow-up visit required
+  // REASSESSMENT — new evidence after an earlier action, needs re-evaluation
+  FIELD_CHECKED
+  FIELD_CONFIRMED
+  ACTION_TAKEN
+  MONITORING
+  REASSESSMENT
+}
+
+/// Result of one field visit recorded by an authorized officer. Never inferred
+/// from anything else — officers choose exactly one truthful outcome.
+/// Maps to a report status via FIELD_OUTCOME_STATUS_MAP (src/server/field-outcomes.ts).
+enum FieldOutcome {
+  FOUND
+  NOT_FOUND
+  MISIDENTIFIED
+  CONTROLLED
+  FOLLOW_UP_REQUIRED
+  ACCESS_DENIED
 }
 
 /// Lifecycle of one ingestion pipeline execution (sources → intelligence).
@@ -56,6 +79,14 @@ enum LocationPrecision {
   UNKNOWN
 }
 
+/// Three-state relationship between the observation point and the photo location.
+/// Historical records never captured this — they are UNKNOWN, not SAME/DIFFERENT.
+enum PhotoLocationRelation {
+  SAME
+  DIFFERENT
+  UNKNOWN
+}
+
 /// Three-way relevance verdict from the explainable pipeline. Thresholds are
 /// documented in docs/intelligence.md; verdicts never imply a confirmed
 /// biological occurrence.
@@ -63,6 +94,27 @@ enum RelevanceVerdict {
   RELEVANT
   IRRELEVANT
   UNCERTAIN
+}
+
+/// A pre-field operational triage decision — deliberately separate from
+/// FieldOutcome (which records what happened DURING a field visit). Recording
+/// a decision never fabricates a field visit and never changes ReportStatus;
+/// it only annotates the report with the officer's current call so the next
+/// officer sees it, backed by durable audit history (ReportDecision).
+enum OperationalDecisionType {
+  DISPATCH // ส่งทีมลงพื้นที่
+  MONITOR // เฝ้าระวังก่อน
+  DEFER // ยังไม่ดำเนินการ
+}
+
+/// Provenance of the uploaded image — how it entered the system.
+/// Never inferred; only explicitly declared or detected.
+enum ImageProvenance {
+  CAPTURED_IN_FIHDAR      // Taken directly in the FihDar app (camera capture)
+  ORIGINAL_UPLOAD         // User uploaded an original file from their device
+  DERIVED_OR_SCREENSHOT   // Detected as screenshot or derived image
+  FORWARDED_OR_EXTERNAL   // Forwarded from LINE/Facebook/etc. or external source
+  UNKNOWN                 // Provenance cannot be determined (historical/default)
 }
 
 model UserProfile {
@@ -75,6 +127,8 @@ model UserProfile {
   province     String?
   avatarUrl    String?
   reports      SightingReport[]
+  fieldActions ReportFieldAction[]
+  decisions    ReportDecision[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 }
@@ -94,16 +148,44 @@ model SightingReport {
   quantityRange       String
   note                String?
   imagePath           String
-  status              ReportStatus @default(PENDING)
+  status              ReportStatus   @default(PENDING)
   riskLevel           RiskLevel?
   verifiedAt          DateTime?
+  // How precisely the observation point is known — declared by the reporter
+  // (EXACT / WATERBODY / … / UNKNOWN), never inferred from the coordinates.
+  // Default UNKNOWN for data integrity: historical records never declared precision.
+  locationPrecision   LocationPrecision @default(UNKNOWN)
+  // Three-state relationship between the observation point and the photo location.
+  // Historical records never captured this — they are UNKNOWN, not SAME/DIFFERENT.
+  photoLocationRelation PhotoLocationRelation @default(UNKNOWN)
+  // Legacy boolean (kept for migration safety). New code uses photoLocationRelation.
+  // True = photo taken elsewhere (DIFFERENT), False = photo taken at observation point (SAME).
+  // Historical records: this defaulted to false but truth is UNKNOWN.
+  photoTakenElsewhere Boolean       @default(false)
+  // EXIF/metadata extracted from the uploaded image (GPS, timestamp, dimensions, etc.).
+  // Stored as supporting evidence ONLY — never treated as ground truth for location/time.
+  imageMetadata       Json?
+  // Provenance of the uploaded image — how it entered the system.
+  // CAPTURED_IN_FIHDAR = taken in-app; ORIGINAL_UPLOAD = user selected file;
+  // DERIVED_OR_SCREENSHOT = screenshot detected; FORWARDED_OR_EXTERNAL = from LINE/FB/etc.
+  imageProvenance     ImageProvenance @default(UNKNOWN)
+  // Populated by the automatic reassessment pipeline (`scripts/intel/reassess.mjs`)
+  // when a newly ingested external observation matches an acted-on report. JSON
+  // shape: { observationId, matchedAt, matchedProvince, matchedDistrict }.
+  reassessmentTrigger Json?
+  fieldActions        ReportFieldAction[]
+  // Denormalized pointer to the latest operational decision (DISPATCH/MONITOR/
+  // DEFER), for cheap list-view display. Full audit history lives in
+  // ReportDecision — this field is never the source of truth, only a cache.
+  operationalDecision OperationalDecisionType?
+  decisions           ReportDecision[]
   // Provenance: system-validation records (created by `npm run db:seed`).
   // Genuine citizen reports always carry isSeedData=false — cleanup deletes
   // only rows where this is true, so real reports can never be touched.
-  isSeedData          Boolean      @default(false)
+  isSeedData          Boolean       @default(false)
   seedBatchId         String?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
 
   @@index([reporterId])
   @@index([status])
@@ -111,6 +193,45 @@ model SightingReport {
   @@index([observedAt])
   @@index([createdAt])
   @@index([isSeedData, seedBatchId])
+}
+
+/// One field visit recorded by an authorized officer against a citizen report.
+/// The report's status is derived from the latest action's outcome; the action
+/// rows are the immutable history the citizen can read back.
+model ReportFieldAction {
+  id               String        @id @default(uuid()) @db.Uuid
+  reportId         String        @db.Uuid
+  report           SightingReport @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  officerProfileId String        @db.Uuid
+  officer          UserProfile   @relation(fields: [officerProfileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  outcome          FieldOutcome
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([reportId])
+  @@index([officerProfileId])
+}
+
+/// One PRE-FIELD operational triage call by an officer — DISPATCH / MONITOR /
+/// DEFER. Distinct from ReportFieldAction (which is POST-visit). Recording a
+/// decision never creates a ReportFieldAction and never changes ReportStatus;
+/// it only updates SightingReport.operationalDecision (the current-value
+/// cache). Rows are never deleted or updated — this is the durable audit
+/// trail (actor, decision, reason, previous/new decision, timestamp).
+model ReportDecision {
+  id               String                   @id @default(uuid()) @db.Uuid
+  reportId         String                   @db.Uuid
+  report           SightingReport           @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  officerProfileId String                   @db.Uuid
+  officer          UserProfile              @relation(fields: [officerProfileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  decision         OperationalDecisionType
+  reason           String?
+  previousDecision OperationalDecisionType?
+  createdAt        DateTime                 @default(now())
+
+  @@index([reportId])
+  @@index([officerProfileId])
 }
 
 /// External information ingested from a public source (government open data,

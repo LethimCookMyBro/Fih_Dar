@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useStore } from '@tanstack/react-form';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -16,14 +17,39 @@ import { LocationPicker, type PickedLocation } from '@/features/map/components/l
 import { createReport } from '@/features/reports/api/service';
 import { reportKeys } from '@/features/reports/api/queries';
 import {
+  EEC_PILOT_PROVINCES,
+  LOCATION_PRECISION_DESCRIPTIONS,
+  LOCATION_PRECISIONS,
+  PHOTO_LOCATION_RELATIONS,
+  PHOTO_LOCATION_RELATION_LABELS,
+  PHOTO_LOCATION_RELATION_DESCRIPTIONS,
   REPORT_PROVINCES,
   REPORT_QUANTITY_RANGES,
   REPORT_QUANTITY_RANGE_LABELS,
-  type CreatedReport
+  type CreatedReport,
+  type LocationPrecision,
+  type PhotoLocationRelation
 } from '@/features/reports/api/types';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+// EEC provinces carry a visible pilot marker in the selector; everything else
+// is nationwide surveillance intake.
+const PROVINCE_OPTIONS = REPORT_PROVINCES.map((province) => ({
+  value: province,
+  label: (EEC_PILOT_PROVINCES as readonly string[]).includes(province)
+    ? `${province} (พื้นที่นำร่อง EEC)`
+    : province
+}));
+
+const PRECISION_OPTIONS = LOCATION_PRECISIONS.map((value) => ({
+  value,
+  label:
+    value === 'EXACT'
+      ? 'ตำแหน่งที่แน่ชัด (ปักหมุดตรงจุด)'
+      : `ตำแหน่งโดยประมาณ (${value === 'UNKNOWN' ? 'ไม่แน่ใจ' : 'ระดับ'})`
+}));
 
 const reportFormSchema = z.object({
   image: z
@@ -40,6 +66,12 @@ const reportFormSchema = z.object({
       'พิกัดไม่ถูกต้อง'
     ),
   province: z.enum(REPORT_PROVINCES, { error: 'กรุณาเลือกจังหวัด' }),
+  locationPrecision: z.enum(LOCATION_PRECISIONS, {
+    error: 'กรุณาระบุความแม่นยำของตำแหน่ง'
+  }),
+  photoLocationRelation: z.enum(PHOTO_LOCATION_RELATIONS, {
+    error: 'กรุณาระบุความสัมพันธ์ระหว่างรูปภาพและตำแหน่งที่พบ'
+  }),
   observedAt: z
     .date({ error: 'กรุณาเลือกวันที่พบ' })
     .refine((date) => date.getTime() <= Date.now(), 'วันที่พบต้องไม่เป็นวันในอนาคต'),
@@ -54,9 +86,13 @@ type ReportFormValues = z.input<typeof reportFormSchema>;
 function toFormData(values: z.output<typeof reportFormSchema>): FormData {
   const form = new FormData();
   form.set('image', values.image);
+  // The pin is the observation location — the point where the fish was found.
+  // It is never replaced by the device's current location or the photo's.
   form.set('latitude', String(values.location.latitude));
   form.set('longitude', String(values.location.longitude));
   form.set('province', values.province);
+  form.set('locationPrecision', values.locationPrecision);
+  form.set('photoLocationRelation', values.photoLocationRelation);
   form.set('observedAt', values.observedAt.toISOString());
   form.set('quantityRange', values.quantityRange);
   form.set('locationDescription', values.locationDescription ?? '');
@@ -80,7 +116,7 @@ function SuccessState({ report }: { report: CreatedReport }) {
       </div>
       <h2 className='mt-4 text-xl font-semibold'>ได้รับรายงานแล้ว</h2>
       <p className='text-muted-foreground mt-2 text-sm'>
-        ทีมงานจะตรวจสอบข้อมูลก่อนนำไปแสดงเป็นข้อมูลที่ยืนยันแล้ว
+        ทีมงานจะตรวจสอบข้อมูลก่อนนำไปแสดงเป็นข้อมูลที่ยืนยันแล้ว และคุณสามารถติดตามสถานะได้ที่ “รายงานของฉัน”
       </p>
 
       <div className='bg-muted mt-5 rounded-lg p-3'>
@@ -154,6 +190,8 @@ export function ReportForm() {
       image: undefined,
       location: undefined,
       province: undefined,
+      locationPrecision: 'EXACT',
+      photoLocationRelation: 'SAME',
       observedAt: undefined,
       quantityRange: undefined,
       locationDescription: '',
@@ -165,6 +203,18 @@ export function ReportForm() {
       await mutation.mutateAsync(toFormData(reportFormSchema.parse(value)));
     }
   });
+
+  const province = useStore(form.store, (state) => state.values.province);
+  const precision = useStore(
+    form.store,
+    (state) => state.values.locationPrecision as LocationPrecision | undefined
+  );
+  const photoRelation = useStore(
+    form.store,
+    (state) => state.values.photoLocationRelation as PhotoLocationRelation | undefined
+  );
+  const outsidePilot =
+    typeof province === 'string' && !(EEC_PILOT_PROVINCES as readonly string[]).includes(province);
 
   if (created) return <SuccessState report={created} />;
 
@@ -207,8 +257,8 @@ export function ReportForm() {
       </FormSection>
 
       <FormSection
-        title='ตำแหน่งที่พบ'
-        description='ปักหมุดให้ใกล้จุดที่พบมากที่สุด พิกัดที่เผยแพร่ต่อสาธารณะจะถูกลดความละเอียดลง'
+        title='ตำแหน่งที่พบปลาจริง'
+        description='ตำแหน่งนี้คือจุดที่พบปลา ไม่ใช่ตำแหน่งที่คุณกำลังส่งรายงานหรือตำแหน่งที่ถ่ายรูป'
       >
         <form.Field
           name='location'
@@ -217,7 +267,7 @@ export function ReportForm() {
             const invalid = field.state.meta.isTouched && errors.length > 0;
             return (
               <Field data-invalid={invalid}>
-                <FieldLabel>ตำแหน่งที่พบ *</FieldLabel>
+                <FieldLabel>ตำแหน่งที่พบปลา *</FieldLabel>
                 <LocationPicker
                   value={(field.state.value as PickedLocation | undefined) ?? null}
                   onChange={(next) => {
@@ -231,6 +281,51 @@ export function ReportForm() {
           }}
         />
 
+        <form.AppField
+          name='photoLocationRelation'
+          children={(field) => (
+            <>
+              <field.SelectField
+                label='ความสัมพันธ์ระหว่างรูปภาพและตำแหน่งที่พบ'
+                required
+                placeholder='เลือกความสัมพันธ์'
+                description='รูปนี้ถ่ายที่จุดพบปลาจริง หรือถ่ายที่อื่น'
+                options={PHOTO_LOCATION_RELATIONS.map((value) => ({
+                  value,
+                  label: PHOTO_LOCATION_RELATION_LABELS[value]
+                }))}
+              />
+              {photoRelation && photoRelation !== 'SAME' && (
+                <p className='text-muted-foreground -mt-3 flex items-start gap-2 text-[0.8125rem] leading-relaxed'>
+                  <Icons.info className='mt-0.5 size-4 shrink-0' aria-hidden />
+                  {PHOTO_LOCATION_RELATION_DESCRIPTIONS[photoRelation]}
+                </p>
+              )}
+            </>
+          )}
+        />
+
+        <form.AppField
+          name='locationPrecision'
+          children={(field) => (
+            <>
+              <field.SelectField
+                label='ความแม่นยำของตำแหน่ง'
+                required
+                placeholder='เลือกความแม่นยำ'
+                description='ตำแหน่งที่แม่นยำช่วยให้เจ้าหน้าที่ลงพื้นที่ได้ตรงจุด'
+                options={PRECISION_OPTIONS}
+              />
+              {precision && precision !== 'EXACT' && (
+                <p className='text-muted-foreground -mt-3 flex items-start gap-2 text-[0.8125rem] leading-relaxed'>
+                  <Icons.info className='mt-0.5 size-4 shrink-0' aria-hidden />
+                  {LOCATION_PRECISION_DESCRIPTIONS[precision]}— หมุดจะถูกแสดงเป็นตำแหน่งโดยประมาณเท่านั้น
+                </p>
+              )}
+            </>
+          )}
+        />
+
         <div className='grid gap-6 sm:grid-cols-2'>
           <form.AppField
             name='province'
@@ -239,10 +334,7 @@ export function ReportForm() {
                 label='จังหวัด'
                 required
                 placeholder='เลือกจังหวัด'
-                options={REPORT_PROVINCES.map((province) => ({
-                  value: province,
-                  label: province
-                }))}
+                options={PROVINCE_OPTIONS}
               />
             )}
           />
@@ -259,6 +351,21 @@ export function ReportForm() {
             )}
           />
         </div>
+
+        {outsidePilot && (
+          <div
+            role='status'
+            className='border-status-pending/40 bg-status-pending/10 text-foreground flex items-start gap-3 rounded-xl border p-3'
+          >
+            <Icons.info className='mt-0.5 size-5 shrink-0' aria-hidden />
+            <p className='text-[0.875rem] leading-relaxed'>
+              พื้นที่นี้อยู่นอกเขตนำร่อง EEC
+              <span className='mt-0.5 block'>
+                ระบบจะเก็บข้อมูลเพื่อการเฝ้าระวัง แต่ยังไม่รวมในคิวปฏิบัติการพื้นที่นำร่อง
+              </span>
+            </p>
+          </div>
+        )}
       </FormSection>
 
       <FormSection title='รายละเอียดการพบ'>

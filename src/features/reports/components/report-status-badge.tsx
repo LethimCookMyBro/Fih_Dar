@@ -15,6 +15,26 @@ const STATUS_STYLE: Record<ReportStatus, { className: string; icon: keyof typeof
   REJECTED: {
     className: 'text-status-rejected border-status-rejected/40 bg-status-rejected/10',
     icon: 'circleX'
+  },
+  FIELD_CHECKED: {
+    className: 'text-status-pending border-status-pending/40 bg-status-pending/10',
+    icon: 'scan'
+  },
+  FIELD_CONFIRMED: {
+    className: 'text-status-verified border-status-verified/40 bg-status-verified/10',
+    icon: 'flag'
+  },
+  ACTION_TAKEN: {
+    className: 'text-status-verified border-status-verified/40 bg-status-verified/10',
+    icon: 'flag'
+  },
+  MONITORING: {
+    className: 'text-status-pending border-status-pending/40 bg-status-pending/10',
+    icon: 'radar'
+  },
+  REASSESSMENT: {
+    className: 'text-status-rejected border-status-rejected/40 bg-status-rejected/10',
+    icon: 'warning'
   }
 };
 

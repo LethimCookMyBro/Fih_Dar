@@ -16,6 +16,12 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+export class ForbiddenError extends AppError {
+  constructor(message = 'Not authorized for this action') {
+    super('FORBIDDEN', 403, message);
+  }
+}
+
 export class AuthServiceError extends AppError {
   constructor(message = 'Authentication service is unavailable') {
     super('AUTH_SERVICE_ERROR', 503, message);

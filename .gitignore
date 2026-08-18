@@ -58,6 +58,9 @@ next-env.d.ts
 # Sentry Config File
 .env.sentry-build-plugin
 
+# claude code metadata
+/.claude/
+
 # Playwright output
 test-results/
 playwright-report/

@@ -32,6 +32,7 @@ import { scoreRelevance, PROTOTYPES } from './relevance.mjs';
 import { findNearDuplicates } from './dedupe.mjs';
 import { resolveEvents } from './events.mjs';
 import { embedTexts, cosineSimilarity } from './embed.mjs';
+import { runReassessmentMatches } from './reassess.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -39,10 +40,14 @@ const require = createRequire(import.meta.url);
  * Run the intelligence batch over observations and return a structured
  * summary for orchestrators:
  *
- *   { rowsConsidered, processed, failed, verdicts, nearDuplicatesLinked, eventCandidates }
+ *   { rowsConsidered, processed, failed, verdicts, nearDuplicatesLinked, eventCandidates, reassessedReports }
  *
  * Reprocessing selects RAW + FAILED rows (retryable); `reprocessAll`
  * selects everything. Algorithms and thresholds are untouched.
+ *
+ * After event resolution, acted-on reports (MONITORING / ACTION_TAKEN /
+ * VERIFIED / FIELD_CHECKED) are automatically reopened for reassessment when
+ * a newly relevant observation matches their location — see reassess.mjs.
  */
 export async function runIntelligence({ prisma, reprocessAll = false, logger = console } = {}) {
   const t0 = Date.now();
@@ -186,6 +191,12 @@ export async function runIntelligence({ prisma, reprocessAll = false, logger = c
     eventsPersisted += 1;
   }
 
+  // ---- automatic reassessment ----------------------------------------------
+  // Newly relevant observations can invalidate an officer's prior field
+  // decision. Reopen matching acted-on reports for reassessment so the
+  // situation on the ground is re-examined.
+  const reassessedReports = await runReassessmentMatches({ prisma, relevant, logger });
+
   // ---- summary + score distributions ----------------------------------------
   const verdictCounts = { RELEVANT: 0, IRRELEVANT: 0, UNCERTAIN: 0 };
   const precisionCounts = {};
@@ -207,6 +218,7 @@ export async function runIntelligence({ prisma, reprocessAll = false, logger = c
   logger.log(`  kinds: ${JSON.stringify(kindCounts)}`);
   logger.log(`  near-duplicates linked: ${linked}`);
   logger.log(`  event candidates: ${eventsPersisted}`);
+  logger.log(`  reports reopened for reassessment: ${reassessedReports}`);
   logger.log('  distributions written to .data/intel/distributions.json');
 
   return {
@@ -216,6 +228,7 @@ export async function runIntelligence({ prisma, reprocessAll = false, logger = c
     verdicts: verdictCounts,
     nearDuplicatesLinked: linked,
     eventCandidates: eventsPersisted,
+    reassessedReports,
     embeddingAvailable
   };
 }

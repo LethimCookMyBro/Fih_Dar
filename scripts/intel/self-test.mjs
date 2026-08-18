@@ -11,6 +11,7 @@ import { extractLocation } from './locations.mjs';
 import { findNearDuplicates, canonicalSourceUrl } from './dedupe.mjs';
 import { computeEventPriority, rankEvents, publisherOf } from './priority.mjs';
 import { resolveEvents } from './events.mjs';
+import { matchReportsForReassessment, runReassessmentMatches } from './reassess.mjs';
 import { Minhash } from 'minhash';
 
 let failures = 0;
@@ -337,6 +338,161 @@ assert(
   'control-removal row and promotional row never share a group, even via a neutral bridge row'
 );
 assert(!(ctrlGroup && promoGroup && ctrlGroup === promoGroup), 'CTRL and PROMO never resolve to the same group object');
+
+// --- reassessment matcher (automatic reopen) ------------------------------
+console.log('reassess (matcher)');
+const baseReport = {
+  id: 'r1',
+  province: 'ชลบุรี',
+  district: 'เมืองชลบุรี',
+  status: 'MONITORING',
+  createdAt: new Date('2026-07-01T00:00:00Z'),
+  lastFieldActionAt: new Date('2026-08-01T00:00:00Z'),
+  reassessmentTrigger: null
+};
+const sig = (id, scrapedAt, province = 'ชลบุรี', district = null, publishedAt = null) => ({
+  observation: { id, scrapedAt, publishedAt },
+  location: { province, district }
+});
+assert(matchReportsForReassessment({ reports: [], signals: [] }).length === 0, 'empty reports and signals → no matches');
+assert(matchReportsForReassessment({ reports: null, signals: null }).length === 0, 'null inputs → no matches');
+const newer = matchReportsForReassessment({
+  reports: [baseReport],
+  signals: [sig('s1', '2026-08-10T00:00:00Z')]
+});
+assert(newer.length === 1, 'same province + newer signal → 1 match');
+assert(newer[0].report.id === 'r1' && newer[0].signal.observation.id === 's1', 'match carries the report and the signal');
+assert(newer[0].matchedProvince === 'ชลบุรี', 'matchedProvince recorded');
+assert(newer[0].matchedDistrict === 'เมืองชลบุรี', 'matchedDistrict recorded from the report');
+assert(
+  matchReportsForReassessment({ reports: [baseReport], signals: [sig('s2', '2026-07-01T00:00:00Z')] }).length === 0,
+  'signal older than report’s last field action → no match'
+);
+assert(
+  matchReportsForReassessment({
+    reports: [{ ...baseReport, id: 'r-no-action', lastFieldActionAt: null, createdAt: new Date('2026-08-05T00:00:00Z') }],
+    signals: [sig('s2b', '2026-08-10T00:00:00Z')]
+  }).length === 1,
+  'report with no recorded field action falls back to createdAt as the anchor'
+);
+// Core fix: an old article scraped LATE must not look like a fresh signal —
+// scrapedAt alone is never sufficient proof of a new biological sighting.
+assert(
+  matchReportsForReassessment({
+    reports: [baseReport], // last field action 2026-08-01
+    signals: [sig('s-old-published', '2026-08-18T00:00:00Z', 'ชลบุรี', null, '2026-07-15T00:00:00Z')]
+  }).length === 0,
+  'article published BEFORE the last field action, scraped after it → no match even though scrapedAt is newer'
+);
+assert(
+  matchReportsForReassessment({
+    reports: [baseReport], // last field action 2026-08-01
+    signals: [sig('s-new-published', '2026-08-18T00:00:00Z', 'ชลบุรี', null, '2026-08-05T00:00:00Z')]
+  }).length === 1,
+  'article genuinely published AFTER the last field action → matches (publishedAt preferred over scrapedAt)'
+);
+assert(
+  matchReportsForReassessment({
+    reports: [baseReport],
+    signals: [sig('s-no-published', '2026-08-10T00:00:00Z', 'ชลบุรี', null, null)]
+  }).length === 1,
+  'no publishedAt available → falls back to scrapedAt'
+);
+assert(
+  matchReportsForReassessment({ reports: [baseReport], signals: [sig('s3', '2026-08-10T00:00:00Z', 'ระยอง')] }).length === 0,
+  'different province → no match'
+);
+assert(
+  matchReportsForReassessment({ reports: [baseReport], signals: [sig('s4', '2026-08-10T00:00:00Z', 'ชลบุรี', 'ศรีราชา')] }).length === 0,
+  'district mismatch when both present → no match'
+);
+assert(
+  matchReportsForReassessment({ reports: [baseReport], signals: [sig('s5', '2026-08-10T00:00:00Z', 'ชลบุรี', 'เมืองชลบุรี')] }).length === 1,
+  'district agree → match'
+);
+assert(
+  matchReportsForReassessment({ reports: [baseReport], signals: [sig('s6', '2026-08-10T00:00:00Z', 'ชลบุรี')] }).length === 1,
+  'province-level signal (no district) still reopens a district-level report'
+);
+const noDistrictReport = matchReportsForReassessment({
+  reports: [{ ...baseReport, id: 'r3', district: null }],
+  signals: [sig('s10', '2026-08-10T00:00:00Z')]
+});
+assert(noDistrictReport.length === 1 && noDistrictReport[0].matchedDistrict === null, 'district-less report matched with matchedDistrict null');
+assert(
+  matchReportsForReassessment({ reports: [{ ...baseReport, id: 'r2', province: null }], signals: [sig('s7', '2026-08-10T00:00:00Z')] }).length === 0,
+  'report without province → never matched'
+);
+assert(
+  matchReportsForReassessment({
+    reports: [{ ...baseReport, reassessmentTrigger: { observationId: 's8' } }],
+    signals: [sig('s8', '2026-08-10T00:00:00Z')]
+  }).length === 0,
+  'same observationId already triggered → skipped (idempotent)'
+);
+const freshObservation = matchReportsForReassessment({
+  reports: [{ ...baseReport, reassessmentTrigger: { observationId: 's8' } }],
+  signals: [sig('s8', '2026-08-10T00:00:00Z'), sig('s9', '2026-08-11T00:00:00Z')]
+});
+assert(freshObservation.length === 1 && freshObservation[0].signal.observation.id === 's9', 'a NEW observation about the same place still reopens');
+const firstWins = matchReportsForReassessment({
+  reports: [baseReport],
+  signals: [sig('a', '2026-08-10T00:00:00Z'), sig('b', '2026-08-11T00:00:00Z')]
+});
+assert(firstWins.length === 1 && firstWins[0].signal.observation.id === 'a', 'first qualifying signal per report wins');
+
+// --- reassessment db runner ------------------------------------------------
+// The runner queries Prisma directly (fieldActions relation, not
+// lastFieldActionAt) and derives lastFieldActionAt itself before calling the
+// pure matcher above — the fake mirrors that real select shape.
+console.log('reassess (db runner)');
+const dbReport = {
+  id: baseReport.id,
+  province: baseReport.province,
+  district: baseReport.district,
+  status: baseReport.status,
+  createdAt: baseReport.createdAt,
+  reassessmentTrigger: baseReport.reassessmentTrigger,
+  fieldActions: [{ createdAt: baseReport.lastFieldActionAt }]
+};
+const seenIds = [];
+const seenData = [];
+const fakePrisma = {
+  sightingReport: {
+    findMany: async () => [dbReport],
+    update: async ({ where, data }) => {
+      seenIds.push(where.id);
+      seenData.push(data);
+      return data;
+    }
+  }
+};
+const reopened = await runReassessmentMatches({
+  prisma: fakePrisma,
+  relevant: [{ observation: { id: 's1', scrapedAt: '2026-08-10T00:00:00Z' }, location: { province: 'ชลบุรี', district: null } }],
+  logger: { log: () => {} }
+});
+assert(reopened === 1, 'runner returns the count of reopened reports');
+assert(seenIds[0] === 'r1', 'runner updates the matched report');
+assert(seenData[0].status === 'REASSESSMENT', 'runner flips status to REASSESSMENT');
+assert(seenData[0].reassessmentTrigger.observationId === 's1', 'runner records the triggering observationId');
+assert(
+  typeof seenData[0].reassessmentTrigger.matchedAt === 'string' && !Number.isNaN(Date.parse(seenData[0].reassessmentTrigger.matchedAt)),
+  'runner records an ISO matchedAt'
+);
+assert(seenData[0].reassessmentTrigger.matchedProvince === 'ชลบุรี', 'runner records matchedProvince');
+assert(seenData[0].reassessmentTrigger.matchedDistrict === 'เมืองชลบุรี', 'runner records matchedDistrict from the report');
+let findCalled = false;
+const idlePrisma = {
+  sightingReport: {
+    findMany: async () => {
+      findCalled = true;
+      return [];
+    }
+  }
+};
+assert(await runReassessmentMatches({ prisma: idlePrisma, relevant: [] }) === 0, 'runner with no relevant rows → 0');
+assert(findCalled === false, 'runner skips the report query when no relevant rows');
 
 console.log(failures === 0 ? '\nall intel self-tests passed' : `\n${failures} assertion(s) FAILED`);
 process.exitCode = failures === 0 ? 0 : 1;

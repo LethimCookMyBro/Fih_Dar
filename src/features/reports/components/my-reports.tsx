@@ -7,7 +7,12 @@ import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { myReportsQueryOptions } from '@/features/reports/api/queries';
-import { REPORT_STATUS_LABELS, type Report, type ReportStatus } from '@/features/reports/api/types';
+import {
+  FIELD_OUTCOME_LABELS,
+  REPORT_STATUS_LABELS,
+  type Report,
+  type ReportStatus
+} from '@/features/reports/api/types';
 import { formatThaiDate } from '@/features/reports/lib/format';
 import { ReportStatusBadge } from './report-status-badge';
 
@@ -54,6 +59,18 @@ function ReportCard({ report }: { report: Report }) {
         <p className='text-muted-foreground mt-0.5 text-[0.8125rem]'>
           พบเมื่อ {formatThaiDate(report.observedAt)}
         </p>
+        {/* Field-operation feedback — how the reporter learns what happened.
+            Raw enum names are never shown; the outcome label + date are. */}
+        {report.latestFieldAction && (
+          <p className='text-muted-foreground mt-1.5 flex items-center gap-1.5 text-[0.8125rem]'>
+            <Icons.flag className='size-3.5 shrink-0' aria-hidden />
+            เจ้าหน้าที่:{' '}
+            {FIELD_OUTCOME_LABELS[report.latestFieldAction.outcome] ??
+              report.latestFieldAction.outcome}
+            <span aria-hidden>·</span>
+            {formatThaiDate(report.latestFieldAction.createdAt)}
+          </p>
+        )}
       </div>
     </li>
   );

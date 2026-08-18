@@ -24,6 +24,15 @@ export const navGroups: NavGroup[] = [
         items: []
       },
       {
+        title: 'ศูนย์ปฏิบัติการ',
+        url: '/ops',
+        icon: 'target',
+        items: [],
+        // Officer-only: the page itself is server-guarded; this only hides the
+        // nav entry for ordinary citizens.
+        showIfOfficer: true
+      },
+      {
         title: 'แหล่งข้อมูล',
         url: '/sources',
         icon: 'database',
