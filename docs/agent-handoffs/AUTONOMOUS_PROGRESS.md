@@ -216,6 +216,27 @@
 - **NEXT_PHASE:** Phase 10 (final git review) → Phase 11 (deployment — needs user decision) → Phase 12 (final report, written).
 - **DO_NOT_REDO:** Do not re-debug the idle test — the card-scoped guard is deterministic and green across the full suite. Do not re-run the 222-test suite for this phase again.
 
+## Checkpoint 9 — Phases 10/11: Final git review + deployment (COMPLETE)
+
+- **TIME:** 2026-08-18 ~04:30 (+07)
+- **PHASE:** 10 — final git review; 11 — deployment
+- **BRANCH:** `main`
+- **STARTING_HEAD:** `5fb43de` → **CURRENT_HEAD:** `df6fe6a` (docs commit for Phase 8 checkpoint + final report)
+- **COMMITS_CREATED:** `df6fe6a docs: checkpoint final verification and write the autonomous master-pass report`
+- **WHAT_WAS_IMPLEMENTED:**
+  - Phase 10: full git review — no secrets (grep scan clean; only false-positive hits "keyboard"/"tokens" in the design spec), no debug files/artifacts, no unrelated churn. Untracked = pre-existing `.claude/worktrees/`, `skills/`, lock file.
+  - Phase 11 (user-authorized): `git push origin main` → `54ad29e..df6fe6a`. Pre-push husky hook (`npm run build`) initially failed on a stale Turbopack lock held by the running dev server — stopped the dev server (taskkill tree 42652), then push passed.
+  - Railway: `fihdar-app` auto-built from the push → deployment `81b27120`, Online, volume attached, SEA region. Cron service intentionally untouched (no ingestion pipeline code changed).
+- **TESTS_RUN / PRODUCTION EVIDENCE:**
+  - `/map /about /sources` → 200 on `fihdar-app-production.up.railway.app`.
+  - `/geo/thailand-mask.geojson` → 200, 848,829 bytes (asset exists only in the new image ⇒ new build proven live).
+  - Playwright browser smoke vs production: 4 team cards, no infinite animations, role-grouped sources observatory, map canvas + style load, mask fetched (network-level), province filter opens with search + province options, **zero console/page errors**.
+  - `/api/sources/summary` healthy; latest SCHEDULED run 00:03 UTC: 1 created / 333 skipped / 0 failed.
+- **KNOWN_ISSUES:** None blocking. The map smoke's performance-entries mask check was a false negative (maplibre fetch not recorded in resource timing) — network capture is the reliable proof.
+- **UNVERIFIED_ITEMS:** Authenticated camera/report flow (needs credentials); visually the production pages match local (features confirmed via DOM + network, not full visual diff).
+- **NEXT_PHASE:** None — master pass complete. See `docs/agent-handoffs/FINAL_AUTONOMOUS_REPORT.md`.
+- **DO_NOT_REDO:** Do not re-run the 222-test suite or re-verify production; do not rebuild the cron image (no ingestion code changed).
+
 ## NEXT_PHASE
 
-Phase 10 — final git review (no secrets/artifacts, logical history). Phase 11 — deployment: requires user decision (push to `https://github.com/LethimCookMyBro/Fih_Dar.git` + Railway). Phase 12 — FINAL_AUTONOMOUS_REPORT.md (written; see docs/agent-handoffs/FINAL_AUTONOMOUS_REPORT.md).
+None — master pass complete.

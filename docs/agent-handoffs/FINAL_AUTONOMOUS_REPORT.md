@@ -109,11 +109,18 @@ Handoff baseline was 201/3 (2 Clerk auth + 1 map legend); the full suite now pas
 
 ## 14. Production deployment state
 
-**Not deployed.** The branch is verified and ready; pushing to origin and confirming the Railway build/cron image is a production action requiring user authorization.
+**DEPLOYED and verified (2026-08-18 ~04:30 +07, user-authorized).**
+
+- `git push origin main` → `54ad29e..df6fe6a` (pre-push hook `npm run build` passed; required stopping the local dev server that held `.next/dev/lock`).
+- Railway `fihdar-app` auto-built from the push: new deployment `81b27120` (was `fa005623`), **Online**, volume `/data/fihdar/uploads` attached, region Southeast Asia.
+- **New image proven live**, not a stale redeploy: `/geo/thailand-mask.geojson` (848,829 bytes) — an asset that exists only in the new build — serves 200.
+- `fihdar-ingestion-cron` intentionally NOT rebuilt: no ingestion/intelligence pipeline code changed this run (Phase 4/5 added zero sources); its valid image keeps the 6-hourly schedule unchanged.
 
 ## 15. Production URLs / state
 
-N/A — no production actions taken.
+- App: `https://fihdar-app-production.up.railway.app` — `/map` `/about` `/sources` all 200.
+- Browser-verified live: 4 team cards render with no infinite animations; role-grouped sources observatory renders; map canvas + OpenFreeMap style load; Thailand mask fetched (network-level); province filter opens with search (`ค้นหาจังหวัด...`) and real province options; **zero console/page errors**.
+- `/api/sources/summary` healthy — latest run `SCHEDULED` 2026-08-18 00:03 UTC: 1 created / 333 skipped / 1 processed / 0 failed (normal dedupe behavior).
 
 ## 16. Anything NOT verified
 
