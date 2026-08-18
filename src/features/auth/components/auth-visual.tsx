@@ -9,7 +9,6 @@ import { CoordinateTicks, TopographicLines } from '@/components/visuals/geospati
 import { TextLoop } from '@/components/visuals/text-loop';
 
 const PANEL_BG = '#14181a';
-const KEPPEL = '#2a9d8f';
 
 // Dither pulls in the full @react-three/fiber + postprocessing + three stack — only Auth
 // pays that bundle cost, and only once the panel has actually decided to render it (see
@@ -35,12 +34,7 @@ export function AuthVisual() {
         href='/map'
         className='relative z-10 flex w-fit items-center gap-3 rounded-(--nav-radius) focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none'
       >
-        <span
-          className='flex size-(--brand-mark) items-center justify-center rounded-lg'
-          style={{ backgroundColor: KEPPEL }}
-        >
-          <LogoMark className='size-(--nav-icon-lg) text-white' />
-        </span>
+        <LogoMark className='size-(--brand-mark) rounded-lg' />
         <span className='text-xl font-semibold tracking-tight text-white'>FihDar</span>
       </Link>
 

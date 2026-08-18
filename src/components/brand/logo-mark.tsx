@@ -1,23 +1,35 @@
-import type { SVGProps } from 'react';
+import Image from 'next/image';
+
+import { cn } from '@/lib/utils';
+
+interface LogoMarkProps {
+  /** Sizing and corner radius. The mark is square; size it with one `size-*`. */
+  className?: string;
+  priority?: boolean;
+}
 
 /**
- * Original FihDar mark: a sonar/radar ring with a single tapered sweep blade that
- * reads simultaneously as a radar sweep and a fin — deliberately abstract rather
- * than a literal fish-inside-a-radar illustration. Two flat shapes, no gradients,
- * so it holds up in one color from favicon size up through hero size. Uses
- * currentColor throughout, so light/dark/mono variants are just the caller's
- * text color — no separate light/dark files needed.
+ * The FihDar mark: a sonar ring whose sweep and inner arcs resolve into a fish.
+ *
+ * The artwork carries its own Keppel field, so it *is* the brand tile — callers
+ * size and round it directly instead of nesting it inside a `bg-primary` square
+ * the way the previous single-colour SVG needed.
+ *
+ * Source artwork is 1254px; `public/brand/logo.png` is the 512px derivative that
+ * ships. next/image serves a WebP scaled to the requested size, so a 32px header
+ * tile does not download the full asset.
  */
-export function LogoMark(props: SVGProps<SVGSVGElement>) {
+export function LogoMark({ className, priority }: LogoMarkProps) {
   return (
-    <svg viewBox='0 0 32 32' fill='none' aria-hidden {...props}>
-      <circle cx='16' cy='16' r='11' stroke='currentColor' strokeWidth='2.25' />
-      <path
-        d='M16 16 C15.4 9.6 18.2 6.4 23.07 7.57 C20.3 9.7 18 12.6 16 16 Z'
-        fill='currentColor'
-      />
-      <circle cx='16' cy='16' r='1.8' fill='currentColor' />
-    </svg>
+    <Image
+      src='/brand/logo.png'
+      alt=''
+      aria-hidden
+      width={512}
+      height={512}
+      priority={priority}
+      className={cn('shrink-0 object-cover select-none', className)}
+    />
   );
 }
 

@@ -31,9 +31,7 @@ export function AboutHero() {
       />
       <div className='relative mx-auto w-full max-w-7xl px-4 pt-16 pb-6 sm:px-6 md:pt-20 md:pb-8 lg:px-8 lg:py-0'>
         <div className='flex flex-col items-center text-center lg:min-h-[84vh] lg:max-w-[47%] lg:items-start lg:justify-center lg:text-start'>
-          <span className='bg-primary text-primary-foreground flex size-12 items-center justify-center rounded-xl md:size-14'>
-            <LogoMark className='size-7 md:size-8' />
-          </span>
+          <LogoMark className='size-12 rounded-xl md:size-14' priority />
           <p className='text-muted-foreground mt-5 font-mono text-[0.75rem] tracking-[0.3em] uppercase'>
             FihDar • EEC
           </p>

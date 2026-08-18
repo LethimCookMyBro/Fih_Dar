@@ -37,9 +37,7 @@ export function FihDarHeader() {
           // 32px link the size of its icon.
           className='flex h-11 items-center gap-2 rounded-(--nav-radius) pe-1 focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none md:hidden'
         >
-          <span className='bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-lg'>
-            <LogoMark className='size-(--nav-icon)' />
-          </span>
+          <LogoMark className='size-8 rounded-lg' priority />
           <span className='text-base font-semibold tracking-tight'>FihDar</span>
         </Link>
 
