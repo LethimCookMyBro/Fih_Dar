@@ -170,6 +170,47 @@ The basemap is **OpenFreeMap Liberty**, an OpenStreetMap-derived vector style on
 OpenMapTiles schema, served without an API key. Attribution is carried in the style and
 rendered by MapLibre's `AttributionControl`. Override with `NEXT_PUBLIC_MAP_STYLE_URL`.
 
+**The basemap is trimmed to a surveillance map.** `src/features/map/lib/basemap.ts` keeps
+only hydrography, roads, place labels, and administrative boundaries; the shaded-relief
+raster, landcover, landuse, buildings, POIs, and rail are removed at load time. Layers are
+matched by reading `source-layer` names back out of the loaded style, so a different style
+simply keeps fewer layers instead of breaking.
+
+**The map is confined to Thailand.** The viewport is bounded to the country
+(`THAILAND_BOUNDS` in `src/features/map/constants.ts`), and everything outside Thailand and
+its territorial waters is washed out by `src/features/map/lib/thailand-extent.ts` — a
+frosted overlay, not a solid fill, so the neighbours stay readable as context while
+Thailand keeps full contrast — which also traces where that jurisdiction ends.
+
+**The sea is exempt.** The mask geometry covers open water too, so the basemap's ocean is
+redrawn on top of it and the sea reads the same on both sides of the limit; only foreign
+land sits under the frost. Where Thai waters end is carried by the boundary line, which is
+drawn above the restored sea.
+
+The geometry is real data in `public/geo/`, regenerated with:
+
+```bash
+npm run geo:download
+```
+
+That script pulls the OpenStreetMap boundary relation for ประเทศไทย via Overpass — the
+**same lineage as the basemap**, which is why the mask edge lands on the border the basemap
+draws instead of near it. Measured against the rendered `boundary_2` line, the edge sits a
+median 0.1–1.2 m and at most ~6 m away at the Lao, Cambodian, Burmese, and Malaysian
+borders — sub-pixel below zoom 15. A generalised world dataset cannot do this; the seam
+shows as grey spilling across the border. Never hand-edit the GeoJSON.
+
+That OSM relation already encloses Thailand's **internal waters and 12 NM territorial
+sea** — the coastline sits inside the extent and the mask edge runs offshore. The script
+verifies this on every run against Marine Regions (an independent maritime dataset,
+used for the check only, never redistributed) and refuses to write a mask that would grey
+out Thai waters.
+
+The extent stops at the **12 NM territorial sea, not the 200 NM EEZ**. In the Gulf of
+Thailand the EEZ includes the unresolved Thailand–Cambodia overlapping claims area and the
+Thailand–Malaysia joint development area; drawing it as a single line would assert a
+settled maritime boundary that does not exist.
+
 **Waterways are real map data.** `src/features/map/lib/waterways.ts` reads the loaded
 style back and re-styles the basemap's own `water` and `waterway` source-layers in
 Keppel. No river geometry is authored by this project; on a style with no hydrography the
