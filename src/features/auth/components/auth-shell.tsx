@@ -36,9 +36,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             href='/map'
             className='flex items-center gap-2.5 rounded-(--nav-radius) focus-visible:ring-2 focus-visible:ring-(--ring) focus-visible:outline-none lg:hidden'
           >
-            <span className='bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-lg'>
-              <LogoMark className='size-(--nav-icon)' />
-            </span>
+            <LogoMark className='size-9 rounded-lg' />
             <span className='text-lg font-semibold tracking-tight'>FihDar</span>
           </Link>
           {children}

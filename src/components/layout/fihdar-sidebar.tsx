@@ -23,11 +23,7 @@ import {
 import { navGroups } from '@/config/nav-config';
 
 function BrandMark() {
-  return (
-    <div className='bg-primary text-primary-foreground flex size-(--brand-mark) shrink-0 items-center justify-center rounded-lg'>
-      <LogoMark className='size-(--nav-icon-lg)' />
-    </div>
-  );
+  return <LogoMark className='size-(--brand-mark) rounded-lg' priority />;
 }
 
 /**

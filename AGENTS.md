@@ -111,6 +111,31 @@ src/
 - `applyWaterwayEmphasis()` reads the **loaded style** back and re-styles the basemap's own
   `water` / `waterway` source-layers. Never author river geometry, and never hardcode a
   source or source-layer name that has not been read from the style.
+- `applyMinimalBasemap()` (`lib/basemap.ts`) strips the world basemap to an allowlist of
+  source-layers — hydrography, roads, labels, boundaries — and drops the shaded-relief
+  raster, landcover, landuse, buildings, POIs, and rail. It matches names against the
+  loaded style, so an unfamiliar style degrades to keeping fewer layers, never to an error.
+- `applyThailandExtent()` (`lib/thailand-extent.ts`) washes out everything outside
+  Thailand and its territorial waters (a frosted overlay, not a solid fill — the
+  neighbours stay legible as context) and traces the limit. The geometry is **real data**
+  in `public/geo/`, produced by `npm run geo:download` — never edit those files by hand;
+  re-run the script. Map order matters — trim → emphasise water → recede roads → extent →
+  report/event layers — so the mask covers the basemap (including its labels) but never
+  the FihDar data on top.
+- **The sea is deliberately not masked.** The mask polygon does cover open water, so
+  `applyThailandExtent()` redraws the basemap's `class=ocean` fill (plus a mirror of the
+  waterway emphasis) back on top of it, and draws the boundary line last. Only foreign land
+  is frosted; over water the boundary line is the sole marker of the limit. Both restored
+  layers read their source and paint off the loaded style — do not hardcode a water colour.
+- The extent comes from the **OSM boundary relation**, not a generalised world dataset —
+  same lineage as the basemap, so the edge lands within ~6 m (sub-pixel below zoom 15) of
+  the border the basemap draws. Swapping in Natural Earth or similar reintroduces a visible
+  seam. That relation already encloses the territorial sea; the coastline is *inside* the
+  extent, so a coastline-only source would grey out Thai waters — `geo:download` verifies
+  this against Marine Regions on every run and fails rather than shipping a wrong mask.
+- The extent stops at the **12 NM territorial sea**. Do not "upgrade" it to the 200 NM EEZ:
+  the Gulf of Thailand EEZ includes unresolved overlapping claims, and a single confident
+  line would assert a boundary that is not settled.
 - Report layers are GeoJSON-driven. Selection uses a filtered layer, not `feature-state`
   (a clustered GeoJSON source does not carry string feature ids through).
 - The heatmap is *report density*, never "outbreak area".
