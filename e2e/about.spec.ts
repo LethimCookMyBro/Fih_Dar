@@ -38,47 +38,74 @@ test.describe('/about — team section', () => {
       .getByAltText(/avatar$/)
       .first()
       .scrollIntoViewIfNeeded();
-    // Let the scroll-reveal entrance animations finish before measuring idle.
-    await page.waitForTimeout(1200);
+    // Let every scroll-reveal entrance animation finish before measuring idle.
+    // A fixed sleep is not enough: under parallel full-suite load the 0.7s
+    // whileInView reveals can start late and leak rAF into the measurement
+    // window. Settle until no animation is running, bounded in case a stray
+    // animation never finishes (the infinite-animation assertion above already
+    // proved there is none).
+    await page.evaluate(async () => {
+      const deadline = Date.now() + 4000;
+      while (Date.now() < deadline) {
+        const running = document.getAnimations().filter((a) => a.playState === 'running');
+        if (running.length === 0) break;
+        // Motion can cancel/replace an animation mid-flight, which rejects its
+        // `finished` promise with AbortError — swallow those and race on the
+        // 250ms tick so the poll always advances.
+        const settle = (p: Promise<unknown>) => p.catch(() => {});
+        await Promise.race([
+          ...running.map((a) => settle(a.finished)),
+          new Promise((r) => setTimeout(r, 250))
+        ]);
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    });
 
-    // No running animation with infinite iteration count (the old card had four
-    // 18s holo sweeps that never stopped).
+    // No running animation with infinite iteration count on the team cards
+    // themselves (the old card had four 18s holo sweeps that never stopped).
     const infiniteAnimations = await page.evaluate(() =>
-      document
-        .getAnimations()
-        .filter((a) => {
-          const animationName = (a as CSSAnimation).animationName ?? 'none';
-          return (
-            a.playState === 'running' &&
-            animationName !== 'none' &&
-            (a.effect as KeyframeEffect | null)?.getComputedTiming().iterations === Infinity
-          );
-        })
-        .map((a) => (a as CSSAnimation).animationName)
+      [...document.querySelectorAll('[data-profile-card]')].flatMap((card) =>
+        card
+          .getAnimations()
+          .filter((a) => {
+            const animationName = (a as CSSAnimation).animationName ?? 'none';
+            return (
+              a.playState === 'running' &&
+              animationName !== 'none' &&
+              (a.effect as KeyframeEffect | null)?.getComputedTiming().iterations === Infinity
+            );
+          })
+          .map((a) => (a as CSSAnimation).animationName)
+      )
     );
     expect(infiniteAnimations).toEqual([]);
 
-    // Count rAF callbacks over 3s of true idle. The old tilt engine produced
-    // ~790/s (~2378 over this window); a single continuous 60fps loop would be
-    // ~180. Requiring well under one continuous loop's worth catches a
-    // perpetual animation without flaking on the odd one-off frame.
-    const rafCalls = await page.evaluate(
+    // The old tilt engine rewrote card style custom properties on every rAF
+    // frame (~790/s across four cards). Watch the cards' style attributes for
+    // one second of idle: any mutation means a per-frame style loop is running.
+    // Scoped to the cards (not the page) because other sections legitimately
+    // animate on scroll-reveal, which made a page-global rAF count race under
+    // parallel full-suite load and measure the wrong signal.
+    const styleMutations = await page.evaluate(
       () =>
         new Promise<number>((resolve) => {
-          const original = window.requestAnimationFrame.bind(window);
-          let calls = 0;
-          window.requestAnimationFrame = (cb) =>
-            original((ts) => {
-              calls += 1;
-              cb(ts);
-            });
+          const cards = [...document.querySelectorAll('[data-profile-card]')];
+          const seen = new Set<HTMLElement>();
+          const observer = new MutationObserver((records) => {
+            for (const record of records) {
+              if (record.type === 'attributes' && record.attributeName === 'style') {
+                seen.add(record.target as HTMLElement);
+              }
+            }
+          });
+          for (const card of cards) observer.observe(card, { attributes: true });
           setTimeout(() => {
-            window.requestAnimationFrame = original;
-            resolve(calls);
-          }, 3000);
+            observer.disconnect();
+            resolve(seen.size);
+          }, 1000);
         })
     );
-    expect(rafCalls).toBeLessThan(120);
+    expect(styleMutations).toBe(0);
   });
 
   test('team cards respect prefers-reduced-motion: no spotlight, no hover lift', async ({
