@@ -76,7 +76,7 @@ function ConfidenceRow({ area }: { area: PriorityArea }) {
   );
 }
 
-function AreaRow({ area }: { area: PriorityArea }) {
+function AreaRow({ area, isOfficer }: { area: PriorityArea; isOfficer: boolean }) {
   const tier = scoreTier(area.score);
   const queryClient = useQueryClient();
 
@@ -140,18 +140,19 @@ function AreaRow({ area }: { area: PriorityArea }) {
       </p>
 
       <div className='mt-3 flex flex-wrap items-center gap-2'>
-        {OPERATIONAL_DECISIONS.map((decision) => (
-          <Button
-            key={decision}
-            type='button'
-            size='sm'
-            variant={area.operationalDecision === decision ? 'default' : 'outline'}
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate(decision)}
-          >
-            {OPERATIONAL_DECISION_LABELS[decision]}
-          </Button>
-        ))}
+        {isOfficer &&
+          OPERATIONAL_DECISIONS.map((decision) => (
+            <Button
+              key={decision}
+              type='button'
+              size='sm'
+              variant={area.operationalDecision === decision ? 'default' : 'outline'}
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate(decision)}
+            >
+              {OPERATIONAL_DECISION_LABELS[decision]}
+            </Button>
+          ))}
 
         <Link
           href={`/map?event=${encodeURIComponent(area.slug)}`}
@@ -176,7 +177,7 @@ function AreaRow({ area }: { area: PriorityArea }) {
  * to make that possible; the recommendation itself never sets a decision —
  * only this button, through requireOfficer(), can.
  */
-export function PriorityLane() {
+export function PriorityLane({ isOfficer }: { isOfficer: boolean }) {
   const { data, isPending, isError } = useQuery(priorityAreasQueryOptions());
   const areas = data?.areas ?? [];
 
@@ -217,7 +218,7 @@ export function PriorityLane() {
       {areas.length > 0 && (
         <ul className='space-y-3'>
           {areas.map((area) => (
-            <AreaRow key={area.slug} area={area} />
+            <AreaRow key={area.slug} area={area} isOfficer={isOfficer} />
           ))}
         </ul>
       )}

@@ -25,11 +25,7 @@ import { navGroups } from '@/config/nav-config';
 import { profileQueryOptions } from '@/features/reports/api/queries';
 
 function BrandMark() {
-  return (
-    <div className='bg-primary text-primary-foreground flex size-(--brand-mark) shrink-0 items-center justify-center rounded-lg'>
-      <LogoMark className='size-(--nav-icon-lg)' />
-    </div>
-  );
+  return <LogoMark className='size-(--brand-mark) rounded-lg' priority />;
 }
 
 /**
@@ -55,7 +51,7 @@ function useCollapseOnTablet() {
   }, [setOpen]);
 }
 
-export function FihDarSidebar() {
+export function FihDarSidebar({ publicOpsDemo = false }: { publicOpsDemo?: boolean }) {
   const pathname = usePathname();
   const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
@@ -66,7 +62,7 @@ export function FihDarSidebar() {
   });
   const items = navGroups
     .flatMap((group) => group.items)
-    .filter((item) => !item.showIfOfficer || profileData?.isOfficer === true);
+    .filter((item) => !item.showIfOfficer || profileData?.isOfficer === true || publicOpsDemo);
 
   useCollapseOnTablet();
 

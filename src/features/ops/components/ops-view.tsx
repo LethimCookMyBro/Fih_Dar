@@ -518,7 +518,7 @@ function OpsCard({ report }: { report: OperationalReport }) {
   );
 }
 
-export function OpsView() {
+export function OpsView({ isOfficer }: { isOfficer: boolean }) {
   const [statusFilter, setStatusFilter] = React.useState<'ALL' | ReportStatus>('ALL');
   const [scope, setScope] = React.useState<'EEC' | 'ALL'>('EEC');
 
@@ -528,10 +528,22 @@ export function OpsView() {
   );
 
   const { data, isPending, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery(operationalReportsQueryOptions(filters));
+    useInfiniteQuery({ ...operationalReportsQueryOptions(filters), enabled: isOfficer });
 
   const reports = React.useMemo(() => data?.pages.flatMap((page) => page.reports) ?? [], [data]);
   const counts = data?.pages[0]?.counts;
+
+  if (!isOfficer) {
+    return (
+      <div className='space-y-10'>
+        <p className='text-muted-foreground border-border rounded-xl border border-dashed px-4 py-3 text-[0.8125rem]'>
+          โหมดสาธิต — สามารถดูคำแนะนำของระบบได้ แต่การสั่งปฏิบัติการสงวนไว้สำหรับเจ้าหน้าที่
+          (คิวรายงานจากประชาชนสงวนไว้สำหรับเจ้าหน้าที่ที่เข้าสู่ระบบ)
+        </p>
+        <PriorityLane isOfficer={false} />
+      </div>
+    );
+  }
 
   return (
     <div className='space-y-10'>
@@ -632,7 +644,7 @@ export function OpsView() {
         )}
       </section>
 
-      <PriorityLane />
+      <PriorityLane isOfficer={isOfficer} />
     </div>
   );
 }

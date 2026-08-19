@@ -207,6 +207,45 @@ try {
     assert.doesNotThrow(() => requireOfficer(OFFICER_CLERK_ID));
   });
 
+  await check(
+    'PUBLIC_OPS_DEMO=true (pitch-day read-only /ops) never loosens mutation authorization — ' +
+      'requireOfficer()/requireOfficer-gated services stay officer-only regardless',
+    async () => {
+      const previous = process.env.PUBLIC_OPS_DEMO;
+      process.env.PUBLIC_OPS_DEMO = 'true';
+      try {
+        assert.throws(() => requireOfficer('someone-not-on-the-allowlist'));
+
+        const report = await makeReport();
+        await assert.rejects(
+          () => recordOperationalDecision(citizenContext, report.id, { decision: 'DISPATCH', reason: null }),
+          isForbidden,
+          'citizen still cannot DISPATCH with the demo flag on'
+        );
+        await assert.rejects(
+          () => recordFieldAction(citizenContext, report.id, { outcome: 'FOUND', notes: null }),
+          isForbidden,
+          'citizen still cannot record a field action with the demo flag on'
+        );
+
+        const event = await makeEventCandidate();
+        await assert.rejects(
+          () => recordEventDecision(citizenContext, event.slug, { decision: 'DISPATCH', reason: null }),
+          isForbidden,
+          'citizen still cannot create an EventDecision with the demo flag on'
+        );
+        const officerResult = await recordEventDecision(officerContext, event.slug, {
+          decision: 'DISPATCH',
+          reason: null
+        });
+        assert.equal(officerResult.decision.decision, 'DISPATCH', 'officer mutation still works with the demo flag on');
+      } finally {
+        if (previous === undefined) delete process.env.PUBLIC_OPS_DEMO;
+        else process.env.PUBLIC_OPS_DEMO = previous;
+      }
+    }
+  );
+
   // --- DISPATCH / MONITOR / DEFER: persisted, audited, status untouched ----
   console.log('operational decisions (DISPATCH/MONITOR/DEFER)');
 

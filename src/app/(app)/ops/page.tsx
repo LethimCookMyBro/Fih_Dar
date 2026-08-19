@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import PageContainer from '@/components/layout/page-container';
-import { requireOfficerOrRedirect } from '@/server/require-auth';
+import { requireOpsPageAccess } from '@/server/require-auth';
 import { OpsView } from '@/features/ops/components/ops-view';
 
 export const metadata: Metadata = {
@@ -10,14 +10,14 @@ export const metadata: Metadata = {
 };
 
 export default async function OpsPage() {
-  await requireOfficerOrRedirect();
+  const { isOfficer } = await requireOpsPageAccess();
 
   return (
     <PageContainer
       pageTitle='ศูนย์ปฏิบัติการภาคสนาม'
       pageDescription='รายงานจากประชาชนและผลการปฏิบัติงานของเจ้าหน้าที่'
     >
-      <OpsView />
+      <OpsView isOfficer={isOfficer} />
     </PageContainer>
   );
 }
