@@ -531,7 +531,11 @@ export function MapLegend({
             <ul className='space-y-2 text-[0.8125rem]'>
               <li className='flex items-center gap-2.5'>
                 <span className='bg-primary size-3 shrink-0 rounded-full ring-2 ring-white' />
-                รายงานจากประชาชน (ยืนยันแล้ว)
+                รายงานจากประชาชน — ตำแหน่งแน่นอน
+              </li>
+              <li className='flex items-center gap-2.5'>
+                <span className='bg-primary/40 size-4 shrink-0 rounded-full' />
+                รายงานจากประชาชน — ตำแหน่งโดยประมาณ (ทราบเพียงแหล่งน้ำ/ตำบล/อำเภอ/จังหวัด)
               </li>
               <li className='flex items-center gap-2.5'>
                 <span className='bg-primary ring-primary/40 size-3 shrink-0 rounded-full ring-4' />

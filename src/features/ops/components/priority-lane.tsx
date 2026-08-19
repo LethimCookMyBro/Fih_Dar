@@ -2,14 +2,31 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 import { Icons } from '@/components/icons';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatAge, scoreTier } from '@/features/priority/components/priority-panel';
+import { recordEventDecision } from '@/features/priority/api/service';
 import type { ConfidenceLevel, PriorityArea } from '@/features/priority/api/types';
-import { priorityAreasQueryOptions } from '../api/queries';
+import {
+  EEC_PILOT_PROVINCES,
+  OPERATIONAL_DECISIONS,
+  OPERATIONAL_DECISION_LABELS,
+  type OperationalDecisionType
+} from '@/features/reports/api/types';
+import { opsKeys, priorityAreasQueryOptions } from '../api/queries';
+
+// Same "outside the operational pilot" fact the citizen-report queue already
+// labels via Report.isEecPilot — EventCandidate carries no such flag, so it
+// is derived the same way here: nationwide intelligence ranking must never
+// silently read as an EEC field-dispatch recommendation.
+function isOutsideEecPilot(province: string | null): boolean {
+  return province !== null && !(EEC_PILOT_PROVINCES as readonly string[]).includes(province);
+}
 
 const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
   HIGH: 'สูง',
@@ -35,6 +52,12 @@ const DIMENSION_LABELS: Record<keyof PriorityArea['confidence'], string> = {
   sourceCorroboration: 'จำนวนแหล่งข่าวอิสระ'
 };
 
+const DECISION_BADGE_CLASS: Record<OperationalDecisionType, string> = {
+  DISPATCH: 'bg-destructive/10 text-destructive border-destructive/30',
+  MONITOR: 'bg-status-pending/10 text-foreground border-status-pending/40',
+  DEFER: 'bg-muted text-muted-foreground border-border'
+};
+
 function ConfidenceRow({ area }: { area: PriorityArea }) {
   const dims = Object.keys(DIMENSION_LABELS) as (keyof PriorityArea['confidence'])[];
   return (
@@ -55,11 +78,40 @@ function ConfidenceRow({ area }: { area: PriorityArea }) {
 
 function AreaRow({ area }: { area: PriorityArea }) {
   const tier = scoreTier(area.score);
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (decision: OperationalDecisionType) =>
+      recordEventDecision(area.slug, { decision, reason: null }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: opsKeys.priorityAreas() }),
+    onError: (error: Error) => toast.error(error.message || 'บันทึกการตัดสินใจไม่สำเร็จ')
+  });
+
   return (
     <li className='border-border rounded-xl border p-4'>
       <div className='flex flex-wrap items-start justify-between gap-3'>
         <div className='min-w-0'>
-          <p className='truncate text-[0.9375rem] font-semibold'>{area.areaLabel}</p>
+          <div className='flex flex-wrap items-center gap-2'>
+            <p className='truncate text-[0.9375rem] font-semibold'>{area.areaLabel}</p>
+            {isOutsideEecPilot(area.province) && (
+              <span
+                title='พื้นที่นี้อยู่นอกเขตนำร่อง EEC — เป็นสัญญาณเฝ้าระวังทั่วประเทศ ไม่ใช่คำแนะนำสำหรับคิวส่งทีมลงพื้นที่นำร่อง'
+                className='border-status-pending/40 bg-status-pending/10 shrink-0 rounded-full border px-2 py-0.5 text-[0.6875rem]'
+              >
+                นอกพื้นที่นำร่อง EEC
+              </span>
+            )}
+            {area.operationalDecision && (
+              <span
+                className={cn(
+                  'shrink-0 rounded-full border px-2 py-0.5 text-[0.6875rem] font-medium',
+                  DECISION_BADGE_CLASS[area.operationalDecision]
+                )}
+              >
+                สถานะการตัดสินใจ: {OPERATIONAL_DECISION_LABELS[area.operationalDecision]}
+              </span>
+            )}
+          </div>
           <p className='text-muted-foreground mt-0.5 text-[0.8125rem]'>
             {area.province ? `จ.${area.province} · ` : ''}
             {formatAge(area.breakdown.recency.ageDays)} · {area.independentSourceCount}{' '}
@@ -87,13 +139,28 @@ function AreaRow({ area }: { area: PriorityArea }) {
         {area.locationPrecision})
       </p>
 
-      <Link
-        href={`/map?event=${encodeURIComponent(area.slug)}`}
-        className='text-brand mt-3 inline-flex items-center gap-1.5 text-[0.8125rem] font-medium hover:underline'
-      >
-        <Icons.mapPin className='size-3.5' aria-hidden />
-        ดูบนแผนที่
-      </Link>
+      <div className='mt-3 flex flex-wrap items-center gap-2'>
+        {OPERATIONAL_DECISIONS.map((decision) => (
+          <Button
+            key={decision}
+            type='button'
+            size='sm'
+            variant={area.operationalDecision === decision ? 'default' : 'outline'}
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate(decision)}
+          >
+            {OPERATIONAL_DECISION_LABELS[decision]}
+          </Button>
+        ))}
+
+        <Link
+          href={`/map?event=${encodeURIComponent(area.slug)}`}
+          className='text-brand ms-auto inline-flex items-center gap-1.5 text-[0.8125rem] font-medium hover:underline'
+        >
+          <Icons.mapPin className='size-3.5' aria-hidden />
+          ดูบนแผนที่
+        </Link>
+      </div>
     </li>
   );
 }
@@ -103,28 +170,34 @@ function AreaRow({ area }: { area: PriorityArea }) {
  * SEPARATE evidence lane from the citizen-report queue below. Citizen reports
  * are never linked into EventCandidate (docs/intelligence.md §18: "deliberately
  * deferred"), so this lane must never be presented as the same operational
- * entity as a citizen report — it is its own, independently-traceable
- * recommendation surface (RECOMMENDATION → EventCandidate → member
- * observations → source, all visible here and on /map).
+ * entity as a citizen report. An officer CAN act on a recommendation directly
+ * (DISPATCH/MONITOR/DEFER, recorded as an EventDecision — see
+ * event-decision-service.ts) without a citizen report ever being fabricated
+ * to make that possible; the recommendation itself never sets a decision —
+ * only this button, through requireOfficer(), can.
  */
 export function PriorityLane() {
   const { data, isPending, isError } = useQuery(priorityAreasQueryOptions());
-  const areas = (data?.areas ?? []).slice(0, 15);
+  const areas = data?.areas ?? [];
 
   return (
     <section className='space-y-3'>
       <div>
-        <h2 className='text-[1.0625rem] font-semibold'>พื้นที่ที่ระบบข่าวกรองให้ความสำคัญ</h2>
+        <h2 className='text-[1.0625rem] font-semibold'>คำแนะนำจากระบบข่าวกรอง</h2>
         <p className='text-muted-foreground text-[0.8125rem]'>
           <span className='bg-brand/10 text-brand rounded-full px-1.5 py-0.5 font-medium'>
             ทดลอง (MVP)
           </span>{' '}
           จัดอันดับจากข่าว/ข้อมูลภายนอกที่ผ่านการประมวลผลข่าวกรองเท่านั้น — ยังไม่เชื่อมโยงกับรายงานจากประชาชนด้านล่าง
-          จึงไม่มีปุ่มตัดสินใจปฏิบัติการที่นี่ — ใช้เพื่อประกอบการพิจารณาเท่านั้น
+          การตัดสินใจที่นี่บันทึกแยกจากรายงานประชาชน — เป็นการตัดสินใจของเจ้าหน้าที่ต่อคำแนะนำนี้โดยตรง
+          <span className='mt-1 block'>
+            รายการนี้จัดอันดับจากสัญญาณทั่วประเทศ ไม่ใช่เฉพาะพื้นที่นำร่อง EEC — รายการที่มีป้าย &ldquo;นอกพื้นที่นำร่อง
+            EEC&rdquo; เป็นข้อมูลเฝ้าระวัง ไม่ใช่คำแนะนำส่งทีมในแผนปัจจุบัน
+          </span>
           <span className='mt-1 block'>
             ระดับหลักฐานด้านล่าง (สูง/ปานกลาง/ต่ำ/ไม่ทราบ) มาจากกฎที่กำหนดไว้แน่นอน —
             ไม่ใช่ความน่าจะเป็นทางสถิติที่ผ่านการปรับเทียบ และ &ldquo;หลักฐานชนิดปลา&rdquo;
-            ไม่ใช่การยืนยันชนิดพันธุ์ในภาคสนาม
+            ไม่ใช่การยืนยันชนิดพันธุ์ในภาคสนาม — priority ไม่ใช่ความน่าจะเป็นที่จะพบปลาจริง
           </span>
         </p>
       </div>

@@ -28,7 +28,13 @@ export function AboutLanyard() {
 
   useEffect(() => {
     const reduceMql = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const capableMql = window.matchMedia('(min-width: 768px)');
+    // Width alone says nothing about input: an iPad in landscape is 1024px
+    // wide but touch-first. Physics + drag interaction is desktop-class
+    // enhancement — require a real pointer, not just a wide viewport, so
+    // iPad/Android tablets get the static card and its no-drag scroll safety.
+    const capableMql = window.matchMedia(
+      '(min-width: 768px) and (hover: hover) and (pointer: fine)'
+    );
     const update = () => setEnv({ reduceMotion: reduceMql.matches, capable: capableMql.matches });
     update();
     reduceMql.addEventListener('change', update);

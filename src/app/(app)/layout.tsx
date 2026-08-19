@@ -22,7 +22,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ข้ามไปยังเนื้อหาหลัก
       </a>
       <FihDarSidebar />
-      <SidebarInset id='main-content' tabIndex={-1} className='min-w-0 overflow-x-hidden'>
+      {/* No overflow-x here: `overflow` other than `visible` on either axis
+          forces the other axis to compute as `auto` (CSS Overflow §3), which
+          turns this flex child into a scroll container of its own — and
+          FihDarHeader's `sticky top-0` inside it then sticks to THIS
+          element's scrollport instead of the real page viewport, so it
+          never visibly detaches from flow while scrolling. `min-w-0` alone
+          (a flex-shrink fix, not an overflow one) already keeps a flex child
+          from forcing horizontal growth; <body> in the root layout already
+          carries overflow-x-hidden as the actual belt-and-suspenders guard,
+          on an element sticky positioning does not resolve against. */}
+      <SidebarInset id='main-content' tabIndex={-1} className='min-w-0'>
         <FihDarHeader />
         {children}
       </SidebarInset>

@@ -10,6 +10,7 @@ import { classifyText, verdictFromEvidence } from './keywords.mjs';
 import { extractLocation } from './locations.mjs';
 import { findNearDuplicates, canonicalSourceUrl } from './dedupe.mjs';
 import { computeEventPriority, rankEvents, publisherOf } from './priority.mjs';
+import { bestPrecision, summarizeEventMembers } from './event-summary.mjs';
 import { resolveEvents } from './events.mjs';
 import { matchReportsForReassessment, runReassessmentMatches } from './reassess.mjs';
 import { Minhash } from 'minhash';
@@ -303,6 +304,51 @@ assert(order1[0] === 'tie-a', 'tie-break falls back to slug ascending');
 console.log('priority (aggregator publisher extraction)');
 assert(publisherOf('ปลาหมอคางดำโผล่ทะเล - ผู้จัดการออนไลน์', 'google-news-th') === 'ผู้จัดการออนไลน์', 'extracts publisher from aggregator title suffix');
 assert(publisherOf('พบปลาหมอคางดำที่ชลบุรี', 'data.go.th') === 'data.go.th', 'falls back to sourceName when no " - Publisher" suffix exists');
+
+// --- event-summary: shared derivation used by both the pipeline (persisted
+// priority) and priority-service.ts (on-demand detail path) ------------------
+console.log('event-summary');
+
+assert(bestPrecision(['PROVINCE', 'EXACT', 'DISTRICT']) === 'EXACT', 'one EXACT member is enough to call the event EXACT');
+assert(bestPrecision(['UNKNOWN', 'UNKNOWN']) === 'UNKNOWN', 'all-unknown members stay UNKNOWN, never invented');
+assert(bestPrecision([]) === 'UNKNOWN', 'no members defaults to UNKNOWN, never throws');
+
+const obs = (over) => ({
+  id: 'o1',
+  sourceName: 'X',
+  sourceUrl: 'https://x.invalid',
+  title: 'title',
+  publishedAt: null,
+  latitude: null,
+  longitude: null,
+  normalizedProvince: null,
+  locationPrecision: null,
+  duplicateOfId: null,
+  evidence: null,
+  ...over
+});
+
+const summary = summarizeEventMembers([
+  obs({ id: 'a', publishedAt: '2026-08-10', locationPrecision: 'PROVINCE', normalizedProvince: 'ชลบุรี' }),
+  obs({
+    id: 'b',
+    publishedAt: '2026-08-15',
+    locationPrecision: 'EXACT',
+    latitude: 13.1,
+    longitude: 101.1,
+    evidence: { location: { place: 'คลองหลังบ้าน' } }
+  })
+]);
+assert(summary.mostRecentPublishedAt.getTime() === new Date('2026-08-15').getTime(), 'mostRecentPublishedAt picks the latest, not the first');
+assert(summary.locationPrecision === 'EXACT', 'event-level precision is the best across members');
+assert(summary.place === 'คลองหลังบ้าน', 'place taken from whichever member evidence carries it');
+assert(summary.coordinate?.latitude === 13.1, 'coordinate taken from the first member that actually has one');
+assert(summary.province === 'ชลบุรี', 'province taken from whichever member has it, order-independent of coordinate');
+
+const summaryNoData = summarizeEventMembers([obs({})]);
+assert(summaryNoData.mostRecentPublishedAt === null, 'no published dates -> null, never fabricated');
+assert(summaryNoData.coordinate === null, 'no coordinates among members -> null, never a fabricated centroid');
+assert(summaryNoData.locationPrecision === 'UNKNOWN', 'no precision data -> UNKNOWN');
 const aggregatorEvent = {
   slug: 'aggregator-multi-outlet',
   locationPrecision: 'WATERBODY',

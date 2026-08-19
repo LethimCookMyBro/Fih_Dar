@@ -1,6 +1,6 @@
 import type { GeoJSONSource, Map as MapLibreMap } from 'maplibre-gl';
 
-import type { Report } from '@/features/reports/api/types';
+import type { LocationPrecision, Report } from '@/features/reports/api/types';
 import type { PriorityArea } from '@/features/priority/api/types';
 import { circlePolygon } from '@/features/map/lib/geo';
 
@@ -52,7 +52,10 @@ const MONITORING_MIN_ZOOM = 9;
  * MapLibre style-spec types only narrow expression literals when they are
  * inlined directly in the `paint` object, not when built by a helper. */
 
-type ReportFeatureCollection = GeoJSON.FeatureCollection<GeoJSON.Point, { id: string }>;
+type ReportFeatureCollection = GeoJSON.FeatureCollection<
+  GeoJSON.Point,
+  { id: string; locationPrecision: LocationPrecision }
+>;
 
 export function toFeatureCollection(reports: Report[]): ReportFeatureCollection {
   return {
@@ -61,10 +64,21 @@ export function toFeatureCollection(reports: Report[]): ReportFeatureCollection 
       type: 'Feature',
       id: report.id,
       geometry: { type: 'Point', coordinates: [report.longitude, report.latitude] },
-      properties: { id: report.id }
+      properties: { id: report.id, locationPrecision: report.locationPrecision }
     }))
   };
 }
+
+/** A report's stored coordinate is only ever a real observation point when
+ * locationPrecision is EXACT — anything coarser (WATERBODY down to UNKNOWN)
+ * is a representative point, not a claimed sighting location. The marker
+ * paint expressions below key off this so a coarse report never renders
+ * indistinguishably from an exact one. */
+const IS_EXACT: ['==', ['get', 'locationPrecision'], 'EXACT'] = [
+  '==',
+  ['get', 'locationPrecision'],
+  'EXACT'
+];
 
 /**
  * Borrow a font stack the style's glyph endpoint is known to serve — hardcoding
@@ -149,6 +163,10 @@ export function addReportLayers(map: MapLibreMap, data: ReportFeatureCollection)
     paint: { 'text-color': '#ffffff' }
   });
 
+  // EXACT reports draw as a small solid dot; anything coarser (a
+  // WATERBODY/SUBDISTRICT/DISTRICT/PROVINCE/UNKNOWN precision report) draws
+  // as a larger, translucent, lighter-stroked circle — visually "approximate
+  // area", never a claimed exact sighting point. See IS_EXACT above.
   map.addLayer({
     id: POINT_LAYER,
     type: 'circle',
@@ -157,8 +175,10 @@ export function addReportLayers(map: MapLibreMap, data: ReportFeatureCollection)
     paint: {
       'circle-color': KEPPEL,
       'circle-stroke-color': '#ffffff',
-      'circle-radius': 7,
-      'circle-stroke-width': 2
+      'circle-radius': ['case', IS_EXACT, 7, 13],
+      'circle-opacity': ['case', IS_EXACT, 1, 0.4],
+      'circle-stroke-width': ['case', IS_EXACT, 2, 1],
+      'circle-stroke-opacity': ['case', IS_EXACT, 1, 0.6]
     }
   });
 
@@ -171,9 +191,11 @@ export function addReportLayers(map: MapLibreMap, data: ReportFeatureCollection)
     filter: NO_SELECTION,
     paint: {
       'circle-color': KEPPEL,
-      'circle-radius': 11,
+      'circle-radius': ['case', IS_EXACT, 11, 18],
+      'circle-opacity': ['case', IS_EXACT, 1, 0.4],
       'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 4
+      'circle-stroke-width': ['case', IS_EXACT, 4, 2],
+      'circle-stroke-opacity': ['case', IS_EXACT, 1, 0.6]
     }
   });
 }

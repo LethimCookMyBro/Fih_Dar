@@ -22,6 +22,13 @@ const {
   getOperationalReportHistory,
   listOperationalReports
 } = await import('../../src/server/report-service.ts');
+const { recordEventDecision, getEventDecisionHistory } = await import(
+  '../../src/server/event-decision-service.ts'
+);
+const { listPriorityAreas, getPriorityAreaDetail } = await import(
+  '../../src/server/priority-service.ts'
+);
+const { backfillPriority } = await import('../intel/backfill-priority.mjs');
 const { requireOfficer } = await import('../../src/server/authorization.ts');
 const { runReassessmentMatches } = await import('../intel/reassess.mjs');
 
@@ -86,6 +93,52 @@ process.env.OFFICER_CLERK_USER_IDS = OFFICER_CLERK_ID;
 let officerProfileId;
 let citizenProfileId;
 const reportIds = [];
+const eventCandidateIds = [];
+const observationIds = [];
+
+/** A minimal 2-member EventCandidate — real ExternalObservation rows linked
+ * through EventCandidateObservation, same shape the intelligence pipeline
+ * produces, so recordEventDecision/getEventDecisionHistory run unmodified.
+ * `publishedAt` drives recency scoring and each member gets a DISTINCT
+ * sourceName so corroboration actually varies with memberCount — priority
+ * math (priority.mjs) reads ExternalObservation.publishedAt/sourceName, NOT
+ * EventCandidate.eventDate, so those must be set here, not via `overrides`. */
+async function makeEventCandidate(overrides = {}, memberCount = 2, publishedAt = new Date()) {
+  const members = await Promise.all(
+    Array.from({ length: memberCount }, (_, i) => i).map((i) =>
+      prisma.externalObservation.create({
+        data: {
+          sourceName: `masterpass-test-source-${i}`,
+          sourceExternalId: `evt-test-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+          sourceUrl: `https://example.invalid/evt-test-${i}`,
+          title: `Test observation ${i}`,
+          publishedAt,
+          processingStatus: 'PROCESSED'
+        },
+        select: { id: true }
+      })
+    )
+  );
+  observationIds.push(...members.map((m) => m.id));
+
+  const event = await prisma.eventCandidate.create({
+    data: {
+      slug: `evt-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      status: 'EXPERIMENTAL',
+      province: 'ชลบุรี',
+      observations: {
+        create: members.map((member, index) => ({
+          observationId: member.id,
+          role: index === 0 ? 'primary' : 'supporting'
+        }))
+      },
+      ...overrides
+    },
+    select: { id: true, slug: true }
+  });
+  eventCandidateIds.push(event.id);
+  return event;
+}
 
 async function makeReport(overrides = {}) {
   const report = await prisma.sightingReport.create({
@@ -219,6 +272,150 @@ try {
     await recordOperationalDecision(officerContext, report.id, { decision: 'DISPATCH', reason: null });
     const actions = await prisma.reportFieldAction.findMany({ where: { reportId: report.id } });
     assert.equal(actions.length, 0, 'a decision is not a field visit');
+  });
+
+  // --- EventDecision: officer acts directly on an AI-derived EventCandidate,
+  // with no fabricated SightingReport in between --------------------------
+  console.log('event decisions (AI recommendation -> officer DISPATCH/MONITOR/DEFER)');
+
+  await check('citizen (non-officer) cannot create an EventDecision', async () => {
+    const event = await makeEventCandidate();
+    await assert.rejects(
+      () => recordEventDecision(citizenContext, event.slug, { decision: 'DISPATCH', reason: null }),
+      isForbidden
+    );
+  });
+
+  await check(
+    'AI recommendation -> officer DISPATCH -> persisted decision -> audit history (concrete example)',
+    async () => {
+      const event = await makeEventCandidate();
+      const before = await prisma.eventCandidate.findUniqueOrThrow({
+        where: { id: event.id },
+        select: { operationalDecision: true }
+      });
+      assert.equal(before.operationalDecision, null, 'AI-derived event starts with no operational decision');
+
+      const result = await recordEventDecision(officerContext, event.slug, {
+        decision: 'DISPATCH',
+        reason: 'หลักฐานเพียงพอสำหรับการลงพื้นที่'
+      });
+      assert.equal(result.decision.decision, 'DISPATCH');
+      assert.equal(result.decision.previousDecision, null);
+      assert.equal(result.decision.officerName, 'Test Officer (masterpass)');
+
+      // Persisted: a real EventDecision row, not a fabricated SightingReport.
+      const rows = await prisma.eventDecision.findMany({ where: { eventCandidateId: event.id } });
+      assert.equal(rows.length, 1, 'exactly one audit row created');
+      assert.equal(rows[0].decision, OperationalDecisionType.DISPATCH);
+      assert.equal(rows[0].officerProfileId, officerProfileId, 'actor recorded');
+      assert.equal(rows[0].reason, 'หลักฐานเพียงพอสำหรับการลงพื้นที่', 'reason recorded');
+
+      // Denormalized cache updated.
+      const after = await prisma.eventCandidate.findUniqueOrThrow({
+        where: { id: event.id },
+        select: { operationalDecision: true }
+      });
+      assert.equal(after.operationalDecision, 'DISPATCH');
+
+      // Audit history readable back through the service, newest first.
+      const history = await getEventDecisionHistory(officerContext, event.slug);
+      assert.equal(history.decisions.length, 1);
+      assert.equal(history.decisions[0].decision, 'DISPATCH');
+
+      // The decision is keyed purely by eventCandidateId — no reportId field
+      // exists on EventDecision at all (see prisma/schema.prisma), so this
+      // flow structurally cannot fabricate a SightingReport linkage.
+      assert.ok(!('reportId' in rows[0]), 'EventDecision carries no citizen-report reference');
+    }
+  );
+
+  await check('MONITOR then DEFER chain previousDecision on an EventCandidate, history append-only', async () => {
+    const event = await makeEventCandidate();
+    await recordEventDecision(officerContext, event.slug, { decision: 'MONITOR', reason: null });
+    await recordEventDecision(officerContext, event.slug, { decision: 'DEFER', reason: 'รอข้อมูลเพิ่ม' });
+
+    const rows = await prisma.eventDecision.findMany({
+      where: { eventCandidateId: event.id },
+      orderBy: { createdAt: 'asc' }
+    });
+    assert.equal(rows.length, 2, 'both decisions retained — no row overwritten or deleted');
+    assert.equal(rows[0].decision, OperationalDecisionType.MONITOR);
+    assert.equal(rows[0].previousDecision, null);
+    assert.equal(rows[1].decision, OperationalDecisionType.DEFER);
+    assert.equal(rows[1].previousDecision, OperationalDecisionType.MONITOR, 'previousDecision chains correctly');
+  });
+
+  await check('an EventDecision on a non-existent EventCandidate is rejected', async () => {
+    await assert.rejects(() =>
+      recordEventDecision(officerContext, 'does-not-exist-slug', { decision: 'DISPATCH', reason: null })
+    );
+  });
+
+  // --- priority persistence: bounded list, on-demand detail, real DB -------
+  console.log('priority persistence (listPriorityAreas / getPriorityAreaDetail)');
+
+  await check('an EventCandidate with no persisted score is excluded from the list, not ranked as zero', async () => {
+    const event = await makeEventCandidate();
+    // makeEventCandidate never runs the intelligence pipeline, so this
+    // candidate has priorityScore: null exactly like a pre-migration row.
+    const result = await listPriorityAreas({ limit: 1000 });
+    assert.ok(
+      !result.areas.some((a) => a.slug === event.slug),
+      'an unscored candidate must never appear in the ranked list'
+    );
+  });
+
+  await check('backfillPriority computes and persists a score, then the event appears in the list, ranked correctly', async () => {
+    const highPriority = await makeEventCandidate({}, 4, new Date()); // fresh, 4 independent sources
+    const lowPriority = await makeEventCandidate({}, 1, new Date('2020-01-01')); // old, 1 source
+    await backfillPriority({ prisma });
+
+    const result = await listPriorityAreas({ limit: 1000 });
+    const high = result.areas.find((a) => a.slug === highPriority.slug);
+    const low = result.areas.find((a) => a.slug === lowPriority.slug);
+    assert.ok(high && low, 'both events now have a persisted score and appear in the list');
+    assert.ok(high.score > low.score, 'fresher, better-corroborated event scores higher');
+    assert.ok(typeof high.priorityVersion === 'string' && high.priorityVersion.length > 0, 'version stamped');
+    assert.ok(high.priorityComputedAt, 'computedAt stamped — never presented as live');
+
+    const highIndex = result.areas.findIndex((a) => a.slug === highPriority.slug);
+    const lowIndex = result.areas.findIndex((a) => a.slug === lowPriority.slug);
+    assert.ok(highIndex < lowIndex, 'list is ordered by score descending, not insertion order');
+  });
+
+  await check('listPriorityAreas respects a small limit — bounded, not the whole table', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      const event = await makeEventCandidate({}, 1);
+      await backfillPriority({ prisma });
+      void event;
+    }
+    const result = await listPriorityAreas({ limit: 2 });
+    assert.ok(result.areas.length <= 2, 'never returns more than the requested limit');
+  });
+
+  await check('the list response never carries the full members graph — bounded preview only', async () => {
+    const event = await makeEventCandidate({}, 8); // 8 members, preview caps at 5
+    await backfillPriority({ prisma });
+    const result = await listPriorityAreas({ limit: 1000 });
+    const area = result.areas.find((a) => a.slug === event.slug);
+    assert.ok(area.members.length <= 5, 'list response members are capped, not the full 8');
+  });
+
+  await check('getPriorityAreaDetail loads the FULL member list on demand — not capped', async () => {
+    const event = await makeEventCandidate({}, 8);
+    await backfillPriority({ prisma });
+    const detail = await getPriorityAreaDetail(event.slug);
+    assert.equal(detail.members.length, 8, 'detail endpoint returns every member, unlike the list preview');
+  });
+
+  await check('scope=EEC excludes a non-EEC-province event; scope=ALL includes it', async () => {
+    const event = await makeEventCandidate({ province: 'เชียงใหม่' }, 1);
+    await backfillPriority({ prisma });
+    const eecOnly = await listPriorityAreas({ scope: 'EEC', limit: 1000 });
+    const all = await listPriorityAreas({ scope: 'ALL', limit: 1000 });
+    assert.ok(!eecOnly.areas.some((a) => a.slug === event.slug), 'เชียงใหม่ is outside the EEC pilot scope');
+    assert.ok(all.areas.some((a) => a.slug === event.slug), 'nationwide scope still surfaces it');
   });
 
   // --- field actions: real persistence, correct status mapping -------------
@@ -449,9 +646,13 @@ try {
 
       await recordFieldAction(officerContext, report.id, { outcome: 'CONTROLLED', notes: null });
 
-      // No sleep, no cache-bust flag — SightingReport/EventCandidate carry no
-      // score/priority/cachedAt column (confirmed in prisma/schema.prisma),
-      // so every read is computed live; a genuinely stale read would fail here.
+      // No sleep, no cache-bust flag — SightingReport carries no
+      // score/priority/cachedAt column, so every read is computed live; a
+      // genuinely stale read would fail here. (EventCandidate now persists a
+      // priority score — see the priority-persistence tests below — but that
+      // score is written once by the intelligence pipeline by design, not
+      // recomputed per-request; operationalDecision on both models is always
+      // read live, same as here.)
       const after = await listOperationalReports(officerContext, { limit: 50 });
       const afterRow = after.reports.find((r) => r.id === report.id);
       assert.equal(afterRow.status, 'ACTION_TAKEN', 'status change visible immediately, not cached');
@@ -462,6 +663,10 @@ try {
   await prisma.reportDecision.deleteMany({ where: { reportId: { in: reportIds } } });
   await prisma.reportFieldAction.deleteMany({ where: { reportId: { in: reportIds } } });
   await prisma.sightingReport.deleteMany({ where: { id: { in: reportIds } } });
+  await prisma.eventDecision.deleteMany({ where: { eventCandidateId: { in: eventCandidateIds } } });
+  // EventCandidateObservation rows cascade-delete with their EventCandidate.
+  await prisma.eventCandidate.deleteMany({ where: { id: { in: eventCandidateIds } } });
+  await prisma.externalObservation.deleteMany({ where: { id: { in: observationIds } } });
   if (officerProfileId) await prisma.userProfile.delete({ where: { id: officerProfileId } }).catch(() => {});
   if (citizenProfileId) await prisma.userProfile.delete({ where: { id: citizenProfileId } }).catch(() => {});
   await prisma.$disconnect();

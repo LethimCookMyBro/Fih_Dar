@@ -37,6 +37,7 @@ auth, so the healthcheck doesn't depend on Clerk being configured correctly.
 |---|---|
 | `NEXT_PUBLIC_MAP_STYLE_URL` | Override the default OpenFreeMap Liberty style URL |
 | `NEXT_PUBLIC_SENTRY_DISABLED` | Set `true` to disable Sentry (also a Docker build ARG) |
+| `OFFICER_CLERK_USER_IDS` | Comma-separated Clerk user IDs authorized for `/ops`. **Unset or empty means no account can access it** — the sidebar link disappears and the routes 403/redirect for everyone, which reads as "the officer feature is broken" rather than "the allowlist was never configured." Set this after the first officer account exists so its Clerk user ID can be copied in. |
 
 Never put actual secret values in this file or any committed doc — set them
 in the Railway dashboard/CLI.

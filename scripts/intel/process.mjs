@@ -33,6 +33,7 @@ import { findNearDuplicates } from './dedupe.mjs';
 import { resolveEvents } from './events.mjs';
 import { embedTexts, cosineSimilarity } from './embed.mjs';
 import { runReassessmentMatches } from './reassess.mjs';
+import { backfillPriority } from './backfill-priority.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -171,9 +172,15 @@ export async function runIntelligence({ prisma, reprocessAll = false, logger = c
 
   let eventsPersisted = 0;
   for (const candidate of events) {
-    await prisma.eventCandidate.deleteMany({ where: { slug: candidate.slug } }); // idempotent re-group
-    await prisma.eventCandidate.create({
-      data: {
+    // slug is a content hash of the exact member-observation-id set (see
+    // events.mjs#requireSlug), so an existing row with this slug already has
+    // these exact members — upsert (not delete+recreate) so its `id` — and
+    // therefore any EventDecision/officer audit history or priority score
+    // tied to that id via foreign key — survives an unchanged regroup. Only
+    // a genuinely new member set (a different slug) creates a new row.
+    await prisma.eventCandidate.upsert({
+      where: { slug: candidate.slug },
+      create: {
         slug: candidate.slug,
         status: candidate.status,
         kind: candidate.kind,
@@ -186,10 +193,30 @@ export async function runIntelligence({ prisma, reprocessAll = false, logger = c
             role: index === 0 ? 'primary' : 'supporting'
           }))
         }
+      },
+      update: {
+        status: candidate.status,
+        kind: candidate.kind,
+        province: candidate.province,
+        eventDate: candidate.eventDate,
+        evidence: candidate.evidence
+        // observations relation intentionally untouched — see comment above.
       }
     });
     eventsPersisted += 1;
   }
+
+  // ---- persist priority (score + breakdown + confidence) ---------------
+  // Refreshes EVERY EventCandidate's persisted score, not just the ones
+  // touched by this run's regroup above: recency decays continuously
+  // (priority.mjs), so an event with zero new evidence still needs its score
+  // refreshed as it ages, and any PRIORITY_VERSION bump is picked up the same
+  // way — every row is recomputed under the CURRENT version on every run, so
+  // no persisted score can silently outlive its algorithm version by more
+  // than one ingestion cycle (~6h, see docs/DEPLOYMENT.md). NOT recomputed
+  // per /ops request — see priority-service.ts, which only ever reads what
+  // was written here.
+  const priorityRefresh = await backfillPriority({ prisma, logger, refreshAll: true });
 
   // ---- automatic reassessment ----------------------------------------------
   // Newly relevant observations can invalidate an officer's prior field
@@ -218,6 +245,7 @@ export async function runIntelligence({ prisma, reprocessAll = false, logger = c
   logger.log(`  kinds: ${JSON.stringify(kindCounts)}`);
   logger.log(`  near-duplicates linked: ${linked}`);
   logger.log(`  event candidates: ${eventsPersisted}`);
+  logger.log(`  priority scores refreshed: ${priorityRefresh.updated} of ${priorityRefresh.candidatesConsidered}`);
   logger.log(`  reports reopened for reassessment: ${reassessedReports}`);
   logger.log('  distributions written to .data/intel/distributions.json');
 
@@ -228,6 +256,7 @@ export async function runIntelligence({ prisma, reprocessAll = false, logger = c
     verdicts: verdictCounts,
     nearDuplicatesLinked: linked,
     eventCandidates: eventsPersisted,
+    priorityScoresRefreshed: priorityRefresh.updated,
     reassessedReports,
     embeddingAvailable
   };

@@ -134,7 +134,11 @@ function SidebarProvider({
           } as React.CSSProperties
         }
         className={cn(
-          'group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-sidebar',
+          // dvh: the shell should fill at least the CURRENT visible
+          // viewport, live-tracking iOS Safari's chrome — svh pins the
+          // floor to the chrome-expanded size and leaves a gap once it
+          // hides (same reasoning as the fixed sidebar's height above).
+          'group/sidebar-wrapper flex min-h-dvh w-full has-data-[variant=inset]:bg-sidebar',
           className
         )}
         {...props}
@@ -230,7 +234,14 @@ function Sidebar({
         data-slot='sidebar-container'
         data-side={side}
         className={cn(
-          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-(--motion-base) ease-(--ease-standard) motion-reduce:transition-none data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
+          // No explicit height: `inset-y-0` on a `fixed` element already
+          // spans the live visual viewport and tracks it as iOS Safari's
+          // chrome shows/hides. An explicit h-svh here would override that
+          // with a height pinned to the SMALLEST viewport, leaving a gap
+          // below the sidebar once the chrome collapses and the real
+          // viewport grows past it — the same class of bug the map page's
+          // 100svh→100dvh fix addressed, at the app-shell level.
+          'fixed inset-y-0 z-10 hidden w-(--sidebar-width) transition-[left,right,width] duration-(--motion-base) ease-(--ease-standard) motion-reduce:transition-none data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
           // Adjust the padding for floating and inset variants.
           variant === 'floating' || variant === 'inset'
             ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'

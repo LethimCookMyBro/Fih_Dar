@@ -100,6 +100,9 @@ export const REPORT_LOCATION_PRECISIONS = [
 ] as const;
 
 export const PHOTO_LOCATION_RELATIONS = ['SAME', 'DIFFERENT', 'UNKNOWN'] as const;
+// UNKNOWN exists only to preserve legacy reports that never declared this
+// relationship. A brand-new report must explicitly say SAME or DIFFERENT.
+export const NEW_REPORT_PHOTO_LOCATION_RELATIONS = ['SAME', 'DIFFERENT'] as const;
 
 export const REPORT_QUANTITY_RANGES = [
   'ONE',
@@ -142,8 +145,10 @@ export const reportMetadataSchema = z
     district: z.string().trim().max(120).nullable(),
     subdistrict: z.string().trim().max(120).nullable(),
     locationDescription: z.string().trim().max(500).nullable(),
+    // A new report must declare both explicitly — no silent default to a
+    // false-certainty or legacy-only value. See NEW_REPORT_PHOTO_LOCATION_RELATIONS.
     locationPrecision: z.enum(REPORT_LOCATION_PRECISIONS),
-    photoLocationRelation: z.enum(PHOTO_LOCATION_RELATIONS),
+    photoLocationRelation: z.enum(NEW_REPORT_PHOTO_LOCATION_RELATIONS),
     observedAt: observedAtField,
     quantityRange: z.enum(REPORT_QUANTITY_RANGES),
     note: z.string().trim().max(1000).nullable(),
@@ -191,8 +196,10 @@ export async function parseReportFormData(form: FormData): Promise<{
     district: optionalFormText(form, 'district'),
     subdistrict: optionalFormText(form, 'subdistrict'),
     locationDescription: optionalFormText(form, 'locationDescription'),
-    locationPrecision: optionalFormText(form, 'locationPrecision') ?? 'UNKNOWN',
-    photoLocationRelation: optionalFormText(form, 'photoLocationRelation') ?? 'UNKNOWN',
+    // No fallback: an unset value must fail validation rather than silently
+    // becoming a value the reporter never actually chose.
+    locationPrecision: optionalFormText(form, 'locationPrecision'),
+    photoLocationRelation: optionalFormText(form, 'photoLocationRelation'),
     observedAt: formText(form, 'observedAt'),
     quantityRange: formText(form, 'quantityRange'),
     note: optionalFormText(form, 'note'),

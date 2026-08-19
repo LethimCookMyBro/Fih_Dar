@@ -80,7 +80,7 @@
   --nav-radius: 0.75rem; /* 12px — nav rows: softer than a control, short of a pill */
 
   /* App header height. Owned here because the map page sizes itself as
-     100svh minus this; when the two drifted apart the map overflowed. */
+     100dvh minus this; when the two drifted apart the map overflowed. */
   --header-h: 3.5rem; /* 56px */
   --brand-mark: 2.5rem; /* 40px — logo mark / avatar, matches reference */
 

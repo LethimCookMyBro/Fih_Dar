@@ -135,7 +135,8 @@ export function PriorityPanel({
 }) {
   const [open, setOpen] = React.useState(false);
   const reduceMotion = useReducedMotion();
-  const { data, isPending, isError } = useQuery(priorityAreasQueryOptions());
+  // Must match map-view.tsx's own call so both share one cached request.
+  const { data, isPending, isError } = useQuery(priorityAreasQueryOptions({ limit: 300 }));
   const allAreas = data?.areas ?? [];
   const areas = allAreas.filter((area) =>
     matchesMapFilters(filters, area.province, area.eventDate ?? area.mostRecentPublishedAt)

@@ -7,12 +7,14 @@ import {
 } from '@/features/reports/api/service';
 import { getPriorityAreas } from '@/features/priority/api/service';
 
+const OPS_PRIORITY_LANE_LIMIT = 15;
+
 export const opsKeys = {
   all: ['ops'] as const,
   reports: (filters: Omit<OperationalReportsQuery, 'cursor'>) =>
     [...opsKeys.all, 'reports', filters] as const,
   history: (reportId: string) => [...opsKeys.all, 'history', reportId] as const,
-  priorityAreas: () => [...opsKeys.all, 'priority-areas'] as const
+  priorityAreas: () => [...opsKeys.all, 'priority-areas', OPS_PRIORITY_LANE_LIMIT] as const
 };
 
 /** Paginated (25–50/page) — never the whole queue in one request. */
@@ -32,9 +34,12 @@ export const operationalReportHistoryQueryOptions = (reportId: string) =>
     enabled: Boolean(reportId)
   });
 
-/** Read-only intelligence-derived priority ranking (EventCandidate) — a separate evidence lane from citizen reports. */
+/** Read-only intelligence-derived priority ranking (EventCandidate) — a
+ * separate evidence lane from citizen reports. Bounded to exactly what the
+ * /ops lane renders (see priority-lane.tsx) — a real DB-ordered top-N query,
+ * not a client-side slice of a larger fetch. */
 export const priorityAreasQueryOptions = () =>
   queryOptions({
     queryKey: opsKeys.priorityAreas(),
-    queryFn: getPriorityAreas
+    queryFn: () => getPriorityAreas({ limit: OPS_PRIORITY_LANE_LIMIT })
   });

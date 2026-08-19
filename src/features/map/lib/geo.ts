@@ -1,4 +1,33 @@
+import type { LocationPrecision } from '@/features/reports/api/types';
+
 const EARTH_RADIUS_METERS = 6371008.8;
+
+/**
+ * Centralized deterministic camera zoom per declared location precision —
+ * the ONE place map navigation decides how close to fly for a selected
+ * report/event, so citizen reports, priority events, and any future caller
+ * never drift into inconsistent zoom logic. Calibrated against this map's
+ * own existing reference points (INITIAL_VIEW zoom 8 = national/EEC
+ * overview, province quick-places = zoom 10, waterway quick-place = zoom 11
+ * — see constants.ts): EXACT reads as a close, meaningful pin; anything
+ * coarser flies to a wide-enough view that the representative coordinate
+ * cannot visually read as a claimed sighting point. This is NOT a GPS
+ * accuracy radius — see report-layers.ts's IS_EXACT comment for that
+ * distinction. UNKNOWN gets the widest, most conservative zoom: it is the
+ * one precision level where even the coarse administrative area is in doubt.
+ */
+const ZOOM_BY_PRECISION: Record<LocationPrecision, number> = {
+  EXACT: 15,
+  WATERBODY: 13,
+  SUBDISTRICT: 11,
+  DISTRICT: 9,
+  PROVINCE: 8,
+  UNKNOWN: 7
+};
+
+export function zoomForLocationPrecision(precision: LocationPrecision | null | undefined): number {
+  return ZOOM_BY_PRECISION[precision ?? 'UNKNOWN'] ?? ZOOM_BY_PRECISION.UNKNOWN;
+}
 
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;

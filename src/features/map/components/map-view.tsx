@@ -52,6 +52,7 @@ import {
   updateReportData
 } from '@/features/map/lib/report-layers';
 import { applyMinimalBasemap } from '@/features/map/lib/basemap';
+import { zoomForLocationPrecision } from '@/features/map/lib/geo';
 import { loadMapLibre } from '@/features/map/lib/load-maplibre';
 import { applyThailandExtent } from '@/features/map/lib/thailand-extent';
 import {
@@ -130,7 +131,10 @@ export function MapView() {
       ),
     [observations]
   );
-  const { data: priorityData } = useQuery(priorityAreasQueryOptions());
+  // The map needs breadth (every event it might plot/filter by province),
+  // not the /ops lane's top-15 — same bounded query, a larger page. Must
+  // match priority-panel.tsx's own call so both share one cached request.
+  const { data: priorityData } = useQuery(priorityAreasQueryOptions({ limit: 300 }));
   const eventAreas = React.useMemo(
     () => filterEventAreas(priorityData?.areas ?? [], filters),
     [priorityData, filters]
@@ -346,7 +350,11 @@ export function MapView() {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     map.flyTo({
       center: [selected.longitude, selected.latitude],
-      zoom: Math.max(map.getZoom(), 12),
+      // A deterministic target for the declared precision — never a floor
+      // against the current zoom, so a PROVINCE-precision report can never
+      // fly in as close as an EXACT one just because the map happened to
+      // already be zoomed in. See zoomForLocationPrecision().
+      zoom: zoomForLocationPrecision(selected.locationPrecision),
       duration: reduceMotion ? 0 : 700
     });
   }, [selectedId, selected, mapReady]);
@@ -362,7 +370,7 @@ export function MapView() {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     map.flyTo({
       center: [selectedEvent.coordinate.longitude, selectedEvent.coordinate.latitude],
-      zoom: Math.max(map.getZoom(), 12),
+      zoom: zoomForLocationPrecision(selectedEvent.locationPrecision),
       duration: reduceMotion ? 0 : 700
     });
   }, [selectedEventSlug, selectedEvent, mapReady]);
@@ -375,17 +383,15 @@ export function MapView() {
   };
 
   const flyToPriorityArea = (area: PriorityArea) => {
-    const map = mapRef.current;
-    if (!map || !area.coordinate) return;
+    if (!area.coordinate) return;
+    // Selecting the event is enough — the "highlight the selected event and
+    // centre on it" effect above already flies with the same
+    // zoomForLocationPrecision() policy every other event-selection path
+    // uses. A second explicit flyTo here would just race that effect with a
+    // different (precision-unaware) zoom target.
     setSelectedId(null);
     setSelectedEventSlug(area.slug);
     setLayers((current) => (current.events ? current : { ...current, events: true }));
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    map.flyTo({
-      center: [area.coordinate.longitude, area.coordinate.latitude],
-      zoom: Math.max(map.getZoom(), 13),
-      duration: reduceMotion ? 0 : 900
-    });
   };
 
   const showEmpty = mapReady && !isPending && !isError && reports.length === 0;

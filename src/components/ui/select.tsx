@@ -6,7 +6,47 @@ import { Select as SelectPrimitive } from '@base-ui/react/select';
 import { cn } from '@/lib/utils';
 import { IconSelector, IconCheck, IconChevronUp, IconChevronDown } from '@tabler/icons-react';
 
-const Select = SelectPrimitive.Root;
+/**
+ * Base UI's `Select.Value` only shows the selected item's label if `Root` is
+ * given an `items` value -> label map; without it, it falls back to printing
+ * the raw value (e.g. `DIFFERENT` instead of "ถ่ายที่อื่น ไม่ใช่จุดพบปลา").
+ * Every caller here authors options declaratively as `<SelectItem>` children
+ * instead, so derive the map from those children rather than asking each
+ * call site to pass `items` separately and risk it drifting from the list.
+ */
+function collectItemLabels(node: React.ReactNode, items: Record<string, React.ReactNode>): void {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return;
+    if (child.type === SelectItem) {
+      const { value, children } = child.props as SelectPrimitive.Item.Props;
+      if (typeof value === 'string') items[value] = children;
+      return;
+    }
+    const nested = (child.props as { children?: React.ReactNode } | undefined)?.children;
+    if (nested != null) collectItemLabels(nested, items);
+  });
+}
+
+function Select<Value, Multiple extends boolean | undefined = false>({
+  items,
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const derivedItems = React.useMemo<
+    NonNullable<SelectPrimitive.Root.Props<Value, Multiple>['items']>
+  >(() => {
+    if (items) return items;
+    const collected: Record<string, React.ReactNode> = {};
+    collectItemLabels(children, collected);
+    return collected;
+  }, [items, children]);
+
+  return (
+    <SelectPrimitive.Root items={derivedItems} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  );
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

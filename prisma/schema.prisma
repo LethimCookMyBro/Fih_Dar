@@ -129,6 +129,7 @@ model UserProfile {
   reports      SightingReport[]
   fieldActions ReportFieldAction[]
   decisions    ReportDecision[]
+  eventDecisions EventDecision[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 }
@@ -312,8 +313,53 @@ model EventCandidate {
   locationPrecision LocationPrecision?
   evidence         Json?
   observations     EventCandidateObservation[]
+
+  // --- Persisted operational priority ----------------------------------------
+  // Computed once by the intelligence pipeline (scripts/intel/process.mjs) at
+  // event-persistence time, NOT recomputed on every /ops read. priorityScore
+  // is an operational ranking heuristic, never a probability. A NULL score
+  // means "not yet computed by this pipeline version" (pre-migration rows, or
+  // rows awaiting `npm run intel:backfill-priority`) — never treated as zero.
+  priorityScore          Int?
+  priorityVersion        String?
+  priorityBreakdown      Json?
+  priorityConfidence     Json?
+  independentSourceCount Int?
+  priorityComputedAt     DateTime?
+
+  // --- PRE-FIELD operational decision (DISPATCH/MONITOR/DEFER) ---------------
+  // Mirrors SightingReport.operationalDecision/ReportDecision exactly. Only an
+  // authorized officer mutation (recordEventDecision) ever writes this — the
+  // intelligence pipeline that computes priorityScore above never touches it.
+  operationalDecision OperationalDecisionType?
+  decisions           EventDecision[]
+
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+
+  @@index([priorityScore])
+}
+
+/// One PRE-FIELD operational triage call by an officer on an AI-derived
+/// EventCandidate — DISPATCH / MONITOR / DEFER. Exact mirror of ReportDecision
+/// (see that model's doc comment) applied to intelligence-derived events
+/// instead of citizen reports. Never fabricates a link to a SightingReport —
+/// an EventCandidate stands on its own evidence. Rows are never deleted or
+/// updated — durable audit trail (actor, decision, reason, previous/new
+/// decision, timestamp).
+model EventDecision {
+  id               String                   @id @default(uuid()) @db.Uuid
+  eventCandidateId String                   @db.Uuid
+  eventCandidate   EventCandidate           @relation(fields: [eventCandidateId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  officerProfileId String                   @db.Uuid
+  officer          UserProfile              @relation(fields: [officerProfileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  decision         OperationalDecisionType
+  reason           String?
+  previousDecision OperationalDecisionType?
+  createdAt        DateTime                 @default(now())
+
+  @@index([eventCandidateId])
+  @@index([officerProfileId])
 }
 
 model EventCandidateObservation {

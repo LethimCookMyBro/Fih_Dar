@@ -1,3 +1,5 @@
+import type { LocationPrecision } from '@/features/reports/api/types';
+
 /** Shape returned by /api/events/priority. EXPERIMENTAL MVP ranking — see docs/FIHDAR_PRIORITY_MVP.md. */
 export interface PriorityBreakdownEntry {
   score: number;
@@ -31,7 +33,7 @@ export interface PriorityArea {
   areaLabel: string;
   province: string | null;
   place: string | null;
-  locationPrecision: string;
+  locationPrecision: LocationPrecision;
   coordinate: { latitude: number; longitude: number } | null;
   eventDate: string | null;
   mostRecentPublishedAt: string | null;
@@ -39,9 +41,15 @@ export interface PriorityArea {
   breakdown: {
     recency: PriorityBreakdownEntry & { ageDays: number | null };
     corroboration: PriorityBreakdownEntry & { independentSourceCount: number };
-    location: PriorityBreakdownEntry & { precision: string };
+    location: PriorityBreakdownEntry & { precision: LocationPrecision };
   };
   independentSourceCount: number;
+  /** Algorithm version the persisted score was computed under — see PRIORITY_VERSION. */
+  priorityVersion: string | null;
+  /** When the intelligence pipeline last computed this score — never "live". */
+  priorityComputedAt: string | null;
+  /** The current PRE-FIELD officer call on this event, if any — see EventDecision. */
+  operationalDecision: 'DISPATCH' | 'MONITOR' | 'DEFER' | null;
   confidence: EvidenceConfidence;
   sources: string[];
   members: {
@@ -54,6 +62,23 @@ export interface PriorityArea {
 }
 
 export interface PriorityResponse {
-  version: string;
+  version: string | null;
   areas: PriorityArea[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+/** Full evidence for one event, loaded on demand — see getPriorityAreaDetail(). */
+export interface PriorityAreaDetail {
+  slug: string;
+  score: number | null;
+  priorityVersion: string | null;
+  priorityComputedAt: string | null;
+  members: {
+    title: string;
+    sourceName: string;
+    sourceUrl: string;
+    publishedAt: string | null;
+    isDuplicate: boolean;
+  }[];
 }

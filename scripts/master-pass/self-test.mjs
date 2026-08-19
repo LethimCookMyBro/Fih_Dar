@@ -31,6 +31,7 @@ const {
   REPORT_PROVINCES,
   EEC_PILOT_PROVINCES,
   REPORT_LOCATION_PRECISIONS,
+  NEW_REPORT_PHOTO_LOCATION_RELATIONS,
   reportMetadataSchema,
   parseReportFormData
 } = await import('../../src/server/report-validation.ts');
@@ -80,7 +81,10 @@ function validPayload(overrides = {}) {
     subdistrict: null,
     locationDescription: 'คลองหลังบ้าน',
     locationPrecision: 'EXACT',
-    photoLocationRelation: 'UNKNOWN',
+    // A brand-new report must always declare SAME or DIFFERENT — UNKNOWN is
+    // legacy-only, never accepted from a new submission. See
+    // NEW_REPORT_PHOTO_LOCATION_RELATIONS.
+    photoLocationRelation: 'SAME',
     observedAt: new Date().toISOString(),
     quantityRange: 'ONE',
     note: null,
@@ -154,17 +158,31 @@ await check('approximate precision is never silently upgraded to EXACT', () => {
   assert.equal(parsed.locationPrecision, 'PROVINCE');
 });
 
-await check('photoLocationRelation defaults to UNKNOWN when omitted from FormData', async () => {
+await check('a new report must explicitly declare photoLocationRelation — no silent default', async () => {
   const form = new FormData();
   form.set('image', new Blob(['x'], { type: 'image/jpeg' }), 'photo.jpg');
   for (const [key, value] of Object.entries(validPayload())) form.set(key, value);
   form.delete('photoLocationRelation');
-  const { metadata } = await parseReportFormData(form);
-  assert.equal(metadata.photoLocationRelation, 'UNKNOWN');
+  await assert.rejects(() => parseReportFormData(form), 'omitted photoLocationRelation must be rejected');
 
   form.set('photoLocationRelation', 'DIFFERENT');
   const { metadata: metadataDiff } = await parseReportFormData(form);
   assert.equal(metadataDiff.photoLocationRelation, 'DIFFERENT');
+});
+
+await check('a new report cannot declare the legacy-only UNKNOWN photoLocationRelation', async () => {
+  assert.deepEqual([...NEW_REPORT_PHOTO_LOCATION_RELATIONS], ['SAME', 'DIFFERENT']);
+  assert.throws(() =>
+    reportMetadataSchema.parse(validPayload({ photoLocationRelation: 'UNKNOWN' }))
+  );
+});
+
+await check('a new report must explicitly declare locationPrecision — no silent default', async () => {
+  const form = new FormData();
+  form.set('image', new Blob(['x'], { type: 'image/jpeg' }), 'photo.jpg');
+  for (const [key, value] of Object.entries(validPayload())) form.set(key, value);
+  form.delete('locationPrecision');
+  await assert.rejects(() => parseReportFormData(form), 'omitted locationPrecision must be rejected');
 });
 
 await check('Thai Buddhist display of 2026-08-18 reads 2569, stored year stays Gregorian', () => {
@@ -328,6 +346,32 @@ await check('every FieldOutcome and ReportStatus label avoids absence/eradicatio
     for (const claim of ABSENCE_CLAIM_SUBSTRINGS) {
       assert.ok(!label.includes(claim), `${status} label "${label}" must not contain "${claim}"`);
     }
+  }
+});
+
+// --- the intelligence pipeline must never write an operational decision ----
+// AI recommendation -> officer decision is a one-way street: an authorized
+// officer HTTP mutation (recordEventDecision) is the ONLY writer of
+// EventDecision / EventCandidate.operationalDecision. This is a static
+// tripwire, not a live-pipeline run (which needs seeded observations + a
+// reachable DB) — it fails loudly if a future edit ever adds a decision
+// write inside scripts/intel/*.mjs.
+
+await check('the intelligence pipeline never references EventDecision or writes operationalDecision', async () => {
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const intelDir = new URL('../intel/', import.meta.url);
+  const files = readdirSync(intelDir).filter((name) => name.endsWith('.mjs'));
+  assert.ok(files.length > 0, 'sanity: intel scripts directory is not empty');
+  for (const file of files) {
+    const source = readFileSync(new URL(file, intelDir), 'utf8');
+    assert.ok(
+      !source.includes('eventDecision'),
+      `${file} must never write EventDecision — only an officer HTTP mutation may`
+    );
+    assert.ok(
+      !source.includes('operationalDecision'),
+      `${file} must never set operationalDecision — only recordEventDecision may`
+    );
   }
 });
 

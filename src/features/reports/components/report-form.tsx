@@ -19,6 +19,7 @@ import { reportKeys } from '@/features/reports/api/queries';
 import {
   EEC_PILOT_PROVINCES,
   LOCATION_PRECISION_DESCRIPTIONS,
+  LOCATION_PRECISION_LABELS,
   LOCATION_PRECISIONS,
   PHOTO_LOCATION_RELATIONS,
   PHOTO_LOCATION_RELATION_LABELS,
@@ -45,11 +46,14 @@ const PROVINCE_OPTIONS = REPORT_PROVINCES.map((province) => ({
 
 const PRECISION_OPTIONS = LOCATION_PRECISIONS.map((value) => ({
   value,
-  label:
-    value === 'EXACT'
-      ? 'ตำแหน่งที่แน่ชัด (ปักหมุดตรงจุด)'
-      : `ตำแหน่งโดยประมาณ (${value === 'UNKNOWN' ? 'ไม่แน่ใจ' : 'ระดับ'})`
+  label: LOCATION_PRECISION_LABELS[value]
 }));
+
+// UNKNOWN exists only to preserve legacy reports that never declared this
+// relationship — a new report must explicitly say SAME or DIFFERENT.
+const NEW_REPORT_PHOTO_LOCATION_RELATIONS = PHOTO_LOCATION_RELATIONS.filter(
+  (value) => value !== 'UNKNOWN'
+);
 
 const reportFormSchema = z.object({
   image: z
@@ -190,8 +194,8 @@ export function ReportForm() {
       image: undefined,
       location: undefined,
       province: undefined,
-      locationPrecision: 'EXACT',
-      photoLocationRelation: 'SAME',
+      locationPrecision: undefined,
+      photoLocationRelation: undefined,
       observedAt: undefined,
       quantityRange: undefined,
       locationDescription: '',
@@ -286,11 +290,11 @@ export function ReportForm() {
           children={(field) => (
             <>
               <field.SelectField
-                label='ความสัมพันธ์ระหว่างรูปภาพและตำแหน่งที่พบ'
+                label='รูปนี้ถ่ายตรงจุดที่พบปลาหรือไม่?'
                 required
-                placeholder='เลือกความสัมพันธ์'
-                description='รูปนี้ถ่ายที่จุดพบปลาจริง หรือถ่ายที่อื่น'
-                options={PHOTO_LOCATION_RELATIONS.map((value) => ({
+                placeholder='เลือกคำตอบ'
+                description='ช่วยให้เจ้าหน้าที่รู้ว่าพิกัดที่ปักไว้มาจากจุดถ่ายภาพหรือคุณระบุเอง'
+                options={NEW_REPORT_PHOTO_LOCATION_RELATIONS.map((value) => ({
                   value,
                   label: PHOTO_LOCATION_RELATION_LABELS[value]
                 }))}
@@ -310,9 +314,9 @@ export function ReportForm() {
           children={(field) => (
             <>
               <field.SelectField
-                label='ความแม่นยำของตำแหน่ง'
+                label='คุณรู้ตำแหน่งที่พบปลาละเอียดแค่ไหน?'
                 required
-                placeholder='เลือกความแม่นยำ'
+                placeholder='เลือกระดับความละเอียด'
                 description='ตำแหน่งที่แม่นยำช่วยให้เจ้าหน้าที่ลงพื้นที่ได้ตรงจุด'
                 options={PRECISION_OPTIONS}
               />

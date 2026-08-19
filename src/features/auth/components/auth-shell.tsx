@@ -14,7 +14,10 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
   const reduceMotion = useReducedMotion();
 
   return (
-    <div className='grid min-h-svh lg:grid-cols-[56fr_44fr]'>
+    // dvh, not svh: this shell should always fill at least the CURRENT
+    // visible viewport, live-tracking iOS Safari's chrome — svh pins the
+    // floor to the chrome-expanded size, leaving a gap below once it hides.
+    <div className='grid min-h-dvh lg:grid-cols-[56fr_44fr]'>
       <AuthVisual />
 
       <div className='bg-background relative flex items-center justify-center overflow-hidden px-4 py-10 sm:px-6 lg:p-10'>

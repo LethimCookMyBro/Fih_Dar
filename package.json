@@ -22,6 +22,7 @@
     "db:ingest": "node --env-file=.env scripts/ingest.mjs",
     "ingest:test": "node scripts/ingestion/self-test.mjs",
     "db:intel": "node --env-file=.env scripts/intel/process.mjs",
+    "intel:backfill-priority": "node --env-file=.env scripts/intel/backfill-priority.mjs",
     "db:refresh": "node --env-file=.env scripts/refresh-intelligence.mjs",
     "db:refresh:prod": "node scripts/refresh-intelligence.mjs",
     "test:e2e": "playwright test",

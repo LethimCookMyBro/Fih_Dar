@@ -9,6 +9,22 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 /**
+ * Clerk's dev-only "keyless mode" banner (no local
+ * NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY configured) portals into
+ * `#clerk-components` and can overlap floating map controls on narrow
+ * viewports. It never renders with real keys (production), so neutralizing
+ * its pointer-events here doesn't hide a real interaction target — it just
+ * stops a dev-only artifact from stealing clicks meant for the map UI.
+ * Must run *after* navigation: Clerk injects its own styles once mounted,
+ * and a same-specificity `!important` rule wins by source order, so a style
+ * tag added before those exist would lose the cascade tie.
+ */
+async function gotoMap(page: Page) {
+  await page.goto('/map');
+  await page.addStyleTag({ content: '#clerk-components { pointer-events: none !important; }' });
+}
+
+/**
  * The map's own floating controls (legend, layer toggles, priority panel)
  * only render once `mapReady` is true, which requires a real external
  * tile-style fetch + WebGL init to finish — under several Playwright viewport
@@ -23,7 +39,7 @@ async function waitForMapReady(page: Page) {
 
 test.describe('/map — priority panel provenance', () => {
   test('priority panel never implies it comes from citizen reports', async ({ page }) => {
-    await page.goto('/map');
+    await gotoMap(page);
     await expect(page.getByRole('main')).toBeVisible();
     await page.waitForTimeout(1000);
 
@@ -43,7 +59,7 @@ test.describe('/map — legend truthfulness', () => {
   test('legend counts citizen reports and operational events separately, never conflated', async ({
     page
   }) => {
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     // Below md the legend is collapsed behind an icon toggle; open it first.
@@ -65,7 +81,7 @@ test.describe('/map — legend truthfulness', () => {
   });
 
   test('enabling the external-source layer adds a distinct, labelled count', async ({ page }) => {
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     const legendCountBefore = await page
@@ -77,13 +93,7 @@ test.describe('/map — legend truthfulness', () => {
     // the desktop layers popover.
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
     await page.getByRole('button', { name: isMobile ? 'ตัวกรอง' : 'เลเยอร์แผนที่' }).click();
-    // force: true — Clerk's dev-only "keyless mode" banner (no local
-    // NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is configured) can render over this
-    // corner on narrow viewports and fails Playwright's "receives pointer
-    // events" actionability check. It never renders with real keys
-    // (production), so it is irrelevant to what this assertion verifies —
-    // the checkbox toggling the legend's count line.
-    await page.locator('#layer-observations-label').click({ force: true });
+    await page.locator('#layer-observations-label').click();
     await page.keyboard.press('Escape');
 
     // Below md the legend also needs opening to read the count line.
@@ -98,7 +108,7 @@ test.describe('/map — 2km monitoring radius', () => {
   test('the layer is on by default and its toggle shows/hides the legend explanation', async ({
     page
   }) => {
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
@@ -130,7 +140,7 @@ test.describe('/map — 2km monitoring radius', () => {
 
 test.describe('/map — legend is collapsible at every breakpoint', () => {
   test('the legend can be collapsed and re-expanded, not just on mobile', async ({ page }) => {
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     // Below md the legend already starts collapsed (asserted elsewhere); this
@@ -157,7 +167,7 @@ test.describe('/map — operational events are discoverable by default', () => {
   test('the events layer is on out of the box, without opening any hidden layer toggle', async ({
     page
   }) => {
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     if ((page.viewportSize()?.width ?? 1280) < 768) {
@@ -179,7 +189,7 @@ test.describe('/map — operational events are discoverable by default', () => {
 
 test.describe('/map — event detail panel', () => {
   test('opening an operational event shows a real detail panel with evidence', async ({ page }) => {
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     // MapLibre features are rendered on a WebGL canvas — hit-testing a real
@@ -235,7 +245,7 @@ test.describe('/map — event detail panel', () => {
 
 test.describe('/map — province filter', () => {
   test('the province list is not hardcoded to only the three EEC provinces', async ({ page }) => {
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
@@ -291,7 +301,7 @@ test.describe('/map — province filter', () => {
       (r) => r.province === 'ชลบุรี' || r.province === 'ระยอง'
     ).length;
 
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
@@ -352,13 +362,16 @@ test.describe('/map — province filter', () => {
     // Ground truth from '/api/events/priority' (src/features/priority/api/service.ts),
     // fetched before any UI interaction. The map's default `days` filter is
     // 'all', so no time-based narrowing is in play — a pure province count is
-    // the correct exact expectation, not just an upper bound.
-    const priorityResponse = await request.get('/api/events/priority');
+    // the correct exact expectation, not just an upper bound. `limit=300`
+    // matches map-view.tsx/priority-panel.tsx's own request — the endpoint
+    // defaults to a much smaller bounded page (see priority-service.ts) for
+    // the /ops lane, which this ground-truth fetch must not silently adopt.
+    const priorityResponse = await request.get('/api/events/priority?limit=300');
     const { areas } = (await priorityResponse.json()) as { areas: { province: string | null }[] };
     const initialCount = areas.length;
     const chonburiCount = areas.filter((a) => a.province === 'ชลบุรี').length;
 
-    await page.goto('/map');
+    await gotoMap(page);
     await waitForMapReady(page);
 
     await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
