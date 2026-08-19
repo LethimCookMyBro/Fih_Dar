@@ -107,6 +107,7 @@ export function MapView() {
   const [selectedEventSlug, setSelectedEventSlug] = React.useState<string | null>(() =>
     searchParams.get('event')
   );
+  const [priorityPanelOpen, setPriorityPanelOpen] = React.useState(false);
   const [filters, setFilters] = React.useState<MapFilters>({ provinces: [], days: 'all' });
   const [layers, setLayers] = React.useState<MapLayerToggles>({
     events: true,
@@ -471,8 +472,14 @@ export function MapView() {
             monitoringVisible={layers.monitoring}
             observationCount={placedObservations.length}
             observationsVisible={layers.observations}
+            onOpenPriority={() => setPriorityPanelOpen(true)}
           />
-          <PriorityPanel filters={filters} onFly={flyToPriorityArea} />
+          <PriorityPanel
+            filters={filters}
+            onFly={flyToPriorityArea}
+            open={priorityPanelOpen}
+            onOpenChange={setPriorityPanelOpen}
+          />
           <ReportPanel report={selected} onClose={() => setSelectedId(null)} />
           <EventPanel event={selectedEvent} onClose={() => setSelectedEventSlug(null)} />
         </>

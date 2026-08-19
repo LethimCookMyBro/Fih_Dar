@@ -7,45 +7,30 @@ const TEAM = [
   {
     name: 'นายชุติพนธ์ จิตต์รุ่งเรืองสุข',
     role: 'ส่วนติดต่อผู้ใช้ และ Cybersecurity',
-    letter: 'ช',
-    bg: '#14181a',
-    fg: '#2a9d8f'
+    accent: '#2a9d8f'
   },
   {
     name: 'นายเมธาสิทธิ์ แก้วศรีทอง',
     role: 'LLM และ RAG',
-    letter: 'ม',
-    bg: '#1e3b37',
-    fg: '#8ecfc6'
+    accent: '#8ecfc6'
   },
   {
     name: 'นายชิษณุพงศ์โรจน์ เลิศกิจกาจา',
     role: 'Automation และ Data Cleansing',
-    letter: 'ล',
-    bg: '#2a1f26',
-    fg: '#c9a9bd'
+    accent: '#c9a9bd'
   },
   {
     name: 'นายพชร ปฏิมาการ',
     role: 'AI Vision และ Image Processing',
-    letter: 'พ',
-    bg: '#14181a',
-    fg: '#70405f'
+    accent: '#70405f'
   }
 ] as const;
 
-// No real member photos exist yet — a branded initials mark (radar-ring motif, matching
-// the app's logo language) stands in per the "abstract placeholder, never a fake AI
-// portrait" rule. Deterministic per member: same input always renders the same mark.
-function initialsAvatar(letter: string, bg: string, fg: string): string {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'>
-    <rect width='300' height='300' fill='${bg}'/>
-    <circle cx='150' cy='138' r='118' fill='none' stroke='${fg}' stroke-width='1.5' opacity='0.35'/>
-    <circle cx='150' cy='138' r='82' fill='none' stroke='${fg}' stroke-width='1.5' opacity='0.55'/>
-    <text x='150' y='168' text-anchor='middle' font-family='Tahoma, "Noto Sans Thai", system-ui, sans-serif' font-size='118' font-weight='700' fill='${fg}'>${letter}</text>
-  </svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-}
+// One shared team mascot image, reused across all four cards (not an individual
+// portrait of any member) — see public/team/tuff-pigeon.png. alt stays empty:
+// it's decorative branding, and labelling it as any one member's photo would be
+// false. Name/role text remain the real accessible content of each card.
+const TEAM_IMAGE_SRC = '/team/tuff-pigeon.png';
 
 export function AboutTeam() {
   return (
@@ -64,7 +49,9 @@ export function AboutTeam() {
               <ProfileCard
                 name={member.name}
                 title={member.role}
-                avatarUrl={initialsAvatar(member.letter, member.bg, member.fg)}
+                avatarUrl={TEAM_IMAGE_SRC}
+                avatarAlt=''
+                accent={member.accent}
               />
             </li>
           ))}

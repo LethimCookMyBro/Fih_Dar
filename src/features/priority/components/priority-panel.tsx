@@ -128,12 +128,15 @@ function AreaCard({ area, onFly }: { area: PriorityArea; onFly: (area: PriorityA
 
 export function PriorityPanel({
   filters,
-  onFly
+  onFly,
+  open,
+  onOpenChange
 }: {
   filters: MapFilters;
   onFly: (area: PriorityArea) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
   const reduceMotion = useReducedMotion();
   // Must match map-view.tsx's own call so both share one cached request.
   const { data, isPending, isError } = useQuery(priorityAreasQueryOptions({ limit: 300 }));
@@ -149,7 +152,7 @@ export function PriorityPanel({
         variant='outline'
         aria-label={open ? 'ซ่อนอันดับพื้นที่ที่ควรลงพื้นที่ก่อน' : 'แสดงอันดับพื้นที่ที่ควรลงพื้นที่ก่อน'}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => onOpenChange(!open)}
         className={cn(
           'pointer-events-auto absolute top-3 end-3 z-10 h-11 gap-2 rounded-(--nav-radius) px-3 text-[0.9375rem] md:top-4 md:end-4',
           FLOATING_SURFACE
@@ -194,7 +197,7 @@ export function PriorityPanel({
                 variant='ghost'
                 size='icon'
                 aria-label='ปิด'
-                onClick={() => setOpen(false)}
+                onClick={() => onOpenChange(false)}
                 className='-me-1 size-9 shrink-0 rounded-(--nav-radius)'
               >
                 <Icons.close />

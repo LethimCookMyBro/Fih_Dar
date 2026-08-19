@@ -462,14 +462,162 @@ export function MapControls({
   );
 }
 
+interface LegendContentProps {
+  monitoringVisible: boolean;
+  observationsVisible: boolean;
+  reportCount: number;
+  eventCount: number;
+  eventsTotal: number;
+  eventsVisible: boolean;
+  observationCount: number;
+  onOpenPriority: () => void;
+}
+
+/** A. Map symbol legend — short, one line per marker. Live counts never live
+ *  here; see LegendSummary below (mission: don't mix statistics into symbol
+ *  descriptions). */
+function LegendSymbols({ monitoringVisible, observationsVisible }: LegendContentProps) {
+  return (
+    <ul className='space-y-2 text-[0.8125rem]'>
+      <li className='flex items-center gap-2.5'>
+        <span className='bg-primary size-3 shrink-0 rounded-full ring-2 ring-white' aria-hidden />
+        รายงานประชาชน
+      </li>
+      <li className='flex items-center gap-2.5'>
+        <span
+          className='size-0 shrink-0 border-x-[5px] border-b-[9px] border-x-transparent border-b-destructive'
+          aria-hidden
+        />
+        เหตุการณ์ที่เชื่อมโยง
+      </li>
+      <li className='flex items-center gap-2.5'>
+        <span className='flex shrink-0 items-center gap-1' aria-hidden>
+          <span className='bg-destructive size-2 rounded-full' />
+          <span className='size-2 rounded-full bg-amber-500' />
+          <span className='bg-muted-foreground/50 size-2 rounded-full' />
+        </span>
+        ความสำคัญ: สูง · ปานกลาง · ต่ำ
+      </li>
+      <li className='flex items-center gap-2.5'>
+        <span className='bg-primary h-0.5 w-4 shrink-0 rounded' aria-hidden />
+        เส้นทางน้ำ
+      </li>
+      {monitoringVisible && (
+        <li className='flex items-center gap-2.5'>
+          <span
+            className='bg-destructive/20 border-destructive/50 size-3 shrink-0 rounded-full border'
+            aria-hidden
+          />
+          พื้นที่เฝ้าระวัง
+        </li>
+      )}
+      {observationsVisible && (
+        <li className='flex items-center gap-2.5'>
+          <span
+            className='bg-brand size-2.5 shrink-0 rotate-45 rounded-[2px] ring-2 ring-white'
+            aria-hidden
+          />
+          สัญญาณดิบจากแหล่งภายนอก
+        </li>
+      )}
+    </ul>
+  );
+}
+
+/** Secondary technical detail, collapsed by default — EXACT vs approximate
+ *  location precision, the selection ring, the priority colour mapping, and
+ *  the watch-radius disclaimer all live here instead of the always-visible
+ *  symbol list. The disclaimer text itself is never dropped, only relocated
+ *  behind this "ดูรายละเอียด" info affordance. */
+function LegendDetails({ monitoringVisible, observationsVisible }: LegendContentProps) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  return (
+    <div className='border-border mt-2 border-t pt-2'>
+      <button
+        type='button'
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+        className='text-muted-foreground hover:text-foreground flex items-center gap-1 text-[0.75rem] font-medium'
+      >
+        <Icons.chevronDown
+          className={cn('size-3.5 transition-transform', expanded && 'rotate-180')}
+          aria-hidden
+        />
+        ดูรายละเอียด
+      </button>
+      {expanded && (
+        <ul className='text-muted-foreground mt-2 space-y-2 text-[0.75rem] leading-relaxed'>
+          <li>
+            รายงานประชาชน — จุดเล็ก: ตำแหน่งแน่นอน · จุดใหญ่จาง: ตำแหน่งโดยประมาณ
+            (ทราบเพียงแหล่งน้ำ/ตำบล/อำเภอ/จังหวัด) · วงแหวนรอบจุด: กลุ่มรายงาน/รายงานที่เลือก
+          </li>
+          <li>เหตุการณ์ที่เชื่อมโยง — สีแสดงลำดับความสำคัญ (แดง สูง · เหลือง ปานกลาง · เทา ต่ำ)</li>
+          {monitoringVisible && (
+            <li>
+              พื้นที่เฝ้าระวัง — รัศมี 2 กม. รอบเหตุการณ์ที่มีพิกัดแน่นอน: พื้นที่แนะนำสำหรับตรวจสอบเพิ่มเติม
+              ไม่ใช่ขอบเขตการระบาดที่ยืนยันแล้ว
+            </li>
+          )}
+          {observationsVisible && <li>สัญญาณดิบจากแหล่งภายนอก — ยังไม่จัดกลุ่มเป็นเหตุการณ์</li>}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** B. Live map summary — real current values only, always a separate section
+ *  from the symbol legend above. "อันดับพื้นที่" opens/focuses the existing
+ *  PriorityPanel rather than duplicating its list here. */
+function LegendSummary({
+  reportCount,
+  eventCount,
+  eventsTotal,
+  eventsVisible,
+  observationCount,
+  observationsVisible,
+  onOpenPriority
+}: LegendContentProps) {
+  return (
+    <div className='text-muted-foreground border-border mt-3 space-y-1 border-t pt-2 text-[0.8125rem] tabular-nums'>
+      <p>แสดง {reportCount} รายงานจากประชาชน</p>
+      {eventsVisible && (
+        <p>
+          + {eventCount} เหตุการณ์ที่มีพิกัดแน่นอน จาก {eventsTotal} เหตุการณ์ทั้งหมด
+        </p>
+      )}
+      {observationsVisible && <p>+ {observationCount} สัญญาณดิบจากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)</p>}
+      {eventsVisible && eventsTotal > 0 && (
+        <button
+          type='button'
+          onClick={onOpenPriority}
+          className='text-brand pt-0.5 font-medium hover:underline'
+        >
+          ดูอันดับพื้นที่ →
+        </button>
+      )}
+    </div>
+  );
+}
+
+function LegendBody(props: LegendContentProps) {
+  return (
+    <>
+      <LegendSymbols {...props} />
+      <LegendDetails {...props} />
+      <LegendSummary {...props} />
+    </>
+  );
+}
+
 /**
- * Legend. A single icon button at every breakpoint — collapsed by default on
- * mobile (390px has no room to spare) and expanded by default from md up,
- * decided after mount so the first client render still matches the server's
- * mobile-closed markup (same pattern as Reveal). Always collapsible: on a
- * desktop the panel used to be permanently open with no way to put it away,
- * which is what read as clunky — now it opens/closes with the same restrained
- * opacity + rise used by PriorityPanel/EventPanel elsewhere on this map.
+ * Legend. Two independent breakpoint-specific trees (same split MapControls
+ * above already uses): a bottom-sheet drawer below md, a collapsible
+ * floating card from md up — rather than one tree reused at every size, so
+ * the mobile sheet's own open/close state never has to be reconciled with
+ * the desktop card's. Content is split into the symbol legend (A), secondary
+ * technical detail behind "ดูรายละเอียด", and the live summary (B) — see
+ * LegendSymbols/LegendDetails/LegendSummary above.
  */
 export function MapLegend({
   reportCount,
@@ -478,7 +626,8 @@ export function MapLegend({
   eventsVisible,
   monitoringVisible,
   observationCount,
-  observationsVisible
+  observationsVisible,
+  onOpenPriority
 }: {
   reportCount: number;
   eventCount: number;
@@ -487,103 +636,106 @@ export function MapLegend({
   monitoringVisible: boolean;
   observationCount: number;
   observationsVisible: boolean;
+  onOpenPriority: () => void;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(true);
   const reduceMotion = useReducedMotion();
-  const eventsWithoutCoordinate = eventsTotal - eventCount;
   const visibleMarkerCount =
     reportCount + (eventsVisible ? eventCount : 0) + (observationsVisible ? observationCount : 0);
-
-  React.useEffect(() => {
-    const mql = window.matchMedia('(min-width: 768px)');
-    setOpen(mql.matches);
-  }, []);
+  const contentProps: LegendContentProps = {
+    reportCount,
+    eventCount,
+    eventsTotal,
+    eventsVisible,
+    monitoringVisible,
+    observationCount,
+    observationsVisible,
+    onOpenPriority
+  };
 
   return (
-    <div className='absolute bottom-3 start-3 z-10 md:bottom-4 md:start-4'>
-      <Button
-        variant='outline'
-        size='icon'
-        aria-label={open ? 'ซ่อนคำอธิบายสัญลักษณ์' : 'แสดงคำอธิบายสัญลักษณ์'}
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className={cn('relative size-11 rounded-(--nav-radius)', FLOATING_SURFACE)}
+    <>
+      {/* ── Mobile: a compact pill, never the full legend left open over the
+             map. Reuses the same Sheet primitive as MapControls' filter sheet. */}
+      <div
+        data-legend-panel='mobile'
+        className='pointer-events-auto absolute bottom-3 start-3 z-10 md:hidden'
       >
-        {open ? <Icons.close /> : <Icons.info />}
-        {!open && visibleMarkerCount > 0 && (
-          <span className='bg-primary text-primary-foreground absolute -end-1.5 -top-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[0.625rem] font-semibold tabular-nums'>
-            {visibleMarkerCount}
-          </span>
-        )}
-      </Button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.97 }}
-            transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-            style={{ transformOrigin: 'bottom left' }}
-            className={cn('absolute bottom-13 start-0 w-64 rounded-xl p-3', FLOATING_SURFACE)}
+        <Sheet>
+          <SheetTrigger
+            render={
+              <Button
+                variant='outline'
+                aria-label='คำอธิบายแผนที่'
+                className={cn(
+                  'relative h-10 gap-1.5 rounded-full px-3 text-[0.8125rem]',
+                  FLOATING_SURFACE
+                )}
+              />
+            }
           >
-            <p className='mb-2 text-[0.8125rem] font-semibold'>คำอธิบายสัญลักษณ์</p>
-            <ul className='space-y-2 text-[0.8125rem]'>
-              <li className='flex items-center gap-2.5'>
-                <span className='bg-primary size-3 shrink-0 rounded-full ring-2 ring-white' />
-                รายงานจากประชาชน — ตำแหน่งแน่นอน
-              </li>
-              <li className='flex items-center gap-2.5'>
-                <span className='bg-primary/40 size-4 shrink-0 rounded-full' />
-                รายงานจากประชาชน — ตำแหน่งโดยประมาณ (ทราบเพียงแหล่งน้ำ/ตำบล/อำเภอ/จังหวัด)
-              </li>
-              <li className='flex items-center gap-2.5'>
-                <span className='bg-primary ring-primary/40 size-3 shrink-0 rounded-full ring-4' />
-                กลุ่มรายงาน / รายงานที่เลือก
-              </li>
-              <li className='flex items-center gap-2.5'>
-                <span
-                  className='size-0 shrink-0 border-x-[5px] border-b-[9px] border-x-transparent border-b-destructive'
-                  aria-hidden
-                />
-                เหตุการณ์ที่เชื่อมโยง — สีแสดงลำดับความสำคัญ (แดง สูง · เหลือง ปานกลาง · เทา ต่ำ)
-              </li>
-              {monitoringVisible && (
-                <li className='flex items-start gap-2.5'>
-                  <span className='bg-destructive/20 border-destructive/50 mt-0.5 size-3 shrink-0 rounded-full border' />
-                  <span>
-                    รัศมีเฝ้าระวัง 2 กม. รอบเหตุการณ์ที่มีพิกัดแน่นอน — เป็นพื้นที่แนะนำให้ตรวจสอบ
-                    ไม่ใช่หลักฐานการแพร่ระบาดที่ยืนยันแล้ว
-                  </span>
-                </li>
-              )}
-              <li className='flex items-center gap-2.5'>
-                <span className='bg-primary h-0.5 w-4 shrink-0 rounded' />
-                เส้นทางน้ำจากข้อมูลแผนที่
-              </li>
-              {observationsVisible && (
-                <li className='flex items-center gap-2.5'>
-                  <span className='bg-brand size-2.5 shrink-0 rotate-45 rounded-[2px] ring-2 ring-white' />
-                  สัญญาณดิบจากแหล่งภายนอก (ยังไม่จัดกลุ่มเป็นเหตุการณ์)
-                </li>
-              )}
-            </ul>
-            <div className='text-muted-foreground border-border mt-3 space-y-0.5 border-t pt-2 text-[0.8125rem] tabular-nums'>
-              <p>แสดง {reportCount} รายงานจากประชาชน</p>
-              {eventsVisible && (
-                <p>
-                  + {eventCount} เหตุการณ์ที่มีพิกัดแน่นอน จาก {eventsTotal} เหตุการณ์ทั้งหมด
-                  {eventsWithoutCoordinate > 0 &&
-                    ` (อีก ${eventsWithoutCoordinate} รายการดูได้ที่ "อันดับพื้นที่")`}
-                </p>
-              )}
-              {observationsVisible && (
-                <p>+ {observationCount} สัญญาณดิบจากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)</p>
-              )}
+            <Icons.info className='size-4' aria-hidden />
+            คำอธิบายแผนที่
+            {visibleMarkerCount > 0 && (
+              <span className='bg-primary text-primary-foreground -me-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[0.625rem] font-semibold tabular-nums'>
+                {visibleMarkerCount}
+              </span>
+            )}
+          </SheetTrigger>
+          <SheetContent
+            side='bottom'
+            data-legend-panel='mobile'
+            className='max-h-[48dvh] rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]'
+          >
+            <SheetHeader className='pb-0'>
+              <SheetTitle className='text-[0.9375rem]'>คำอธิบายแผนที่</SheetTitle>
+            </SheetHeader>
+            <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-2'>
+              <LegendBody {...contentProps} />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* ── Desktop / tablet: compact floating card, collapsible, expanded by
+             default — this subtree simply doesn't render below md, so `open`
+             can default true with no server/client mismatch to guard against. */}
+      <div
+        data-legend-panel='desktop'
+        className='pointer-events-auto absolute bottom-4 start-4 z-10 hidden md:block'
+      >
+        <Button
+          variant='outline'
+          size='icon'
+          aria-label={open ? 'ซ่อนคำอธิบายแผนที่' : 'แสดงคำอธิบายแผนที่'}
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className={cn('relative size-11 rounded-(--nav-radius)', FLOATING_SURFACE)}
+        >
+          {open ? <Icons.close /> : <Icons.info />}
+          {!open && visibleMarkerCount > 0 && (
+            <span className='bg-primary text-primary-foreground absolute -end-1.5 -top-1.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[0.625rem] font-semibold tabular-nums'>
+              {visibleMarkerCount}
+            </span>
+          )}
+        </Button>
+
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.97 }}
+              transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+              style={{ transformOrigin: 'bottom left' }}
+              className={cn('absolute bottom-13 start-0 w-72 rounded-xl p-3', FLOATING_SURFACE)}
+            >
+              <p className='mb-2 text-[0.8125rem] font-semibold'>คำอธิบายแผนที่</p>
+              <LegendBody {...contentProps} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }

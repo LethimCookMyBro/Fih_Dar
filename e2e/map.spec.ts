@@ -37,13 +37,26 @@ async function waitForMapReady(page: Page) {
   await expect(page.getByText('กำลังโหลดแผนที่')).toBeHidden({ timeout: 20_000 });
 }
 
+/**
+ * MapLegend renders two independent breakpoint-specific trees at once (a
+ * mobile Sheet, a desktop floating card — see map-controls.tsx), each marked
+ * with `data-legend-panel`. The desktop tree defaults open, so on a mobile
+ * viewport it is still mounted (just CSS-hidden) alongside the opened mobile
+ * sheet — a bare `page.getByText(...)` for legend body copy would match both
+ * and throw a Playwright strict-mode violation. Scope every legend-content
+ * lookup through this helper instead of matching the whole page.
+ */
+function legendPanel(page: Page, isMobile: boolean) {
+  return page.locator(`[data-legend-panel="${isMobile ? 'mobile' : 'desktop'}"]`);
+}
+
 test.describe('/map — priority panel provenance', () => {
   test('priority panel never implies it comes from citizen reports', async ({ page }) => {
     await gotoMap(page);
     await expect(page.getByRole('main')).toBeVisible();
     await page.waitForTimeout(1000);
 
-    await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
+    await page.getByRole('button', { name: /แสดงอันดับพื้นที่|ซ่อนอันดับพื้นที่/ }).click();
     const dialog = page.getByRole('dialog', { name: /อันดับพื้นที่/ });
     await expect(dialog).toBeVisible();
 
@@ -62,20 +75,23 @@ test.describe('/map — legend truthfulness', () => {
     await gotoMap(page);
     await waitForMapReady(page);
 
-    // Below md the legend is collapsed behind an icon toggle; open it first.
-    if ((page.viewportSize()?.width ?? 1280) < 768) {
-      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    // Below md the legend is a closed bottom sheet; open it first.
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    if (isMobile) {
+      await page.getByRole('button', { name: 'คำอธิบายแผนที่' }).click();
     }
+    const panel = legendPanel(page, isMobile);
 
     // The default map view surfaces the operational-events layer (EventCandidates
     // ranked by priority) alongside citizen reports — this is the fix for the
     // "map looks disconnected from the intelligence pipeline" defect. Each count
     // uses its own domain-correct term and must never borrow the other's label.
-    const reportCountLine = page.getByText(/^แสดง \d+ รายงานจากประชาชน$/);
+    // These live in the live-summary section, separate from the symbol legend.
+    const reportCountLine = panel.getByText(/^แสดง \d+ รายงานจากประชาชน$/);
     await expect(reportCountLine).toBeVisible();
     await expect(reportCountLine).not.toContainText('เหตุการณ์');
 
-    const eventCountLine = page.getByText(/เหตุการณ์ที่มีพิกัดแน่นอน จาก \d+ เหตุการณ์ทั้งหมด/);
+    const eventCountLine = panel.getByText(/เหตุการณ์ที่มีพิกัดแน่นอน จาก \d+ เหตุการณ์ทั้งหมด/);
     await expect(eventCountLine).toBeVisible();
     await expect(eventCountLine).not.toContainText('รายงานจากประชาชน');
   });
@@ -84,23 +100,25 @@ test.describe('/map — legend truthfulness', () => {
     await gotoMap(page);
     await waitForMapReady(page);
 
-    const legendCountBefore = await page
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    const panel = legendPanel(page, isMobile);
+
+    const legendCountBefore = await panel
       .getByText('จากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)', { exact: false })
       .count();
     expect(legendCountBefore).toBe(0); // off by default — no external count line yet
 
     // Below md the layer toggles live inside the "ตัวกรอง" bottom sheet, not
     // the desktop layers popover.
-    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
     await page.getByRole('button', { name: isMobile ? 'ตัวกรอง' : 'เลเยอร์แผนที่' }).click();
     await page.locator('#layer-observations-label').click();
     await page.keyboard.press('Escape');
 
     // Below md the legend also needs opening to read the count line.
     if (isMobile) {
-      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+      await page.getByRole('button', { name: 'คำอธิบายแผนที่' }).click();
     }
-    await expect(page.getByText('จากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)', { exact: false })).toBeVisible();
+    await expect(panel.getByText('จากแหล่งภายนอก (เฉพาะจุดที่มีพิกัด)', { exact: false })).toBeVisible();
   });
 });
 
@@ -112,13 +130,31 @@ test.describe('/map — 2km monitoring radius', () => {
     await waitForMapReady(page);
 
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
-    if (isMobile) {
-      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    const panel = legendPanel(page, isMobile);
+    // The short "พื้นที่เฝ้าระวัง" label lives in the always-visible symbol
+    // list; the full disclaimer moved behind "ดูรายละเอียด" (mission: replace
+    // the long visible sentence with a short label + an info affordance).
+    // Mobile's Sheet unmounts its content on close, resetting the disclosure
+    // to collapsed each time — reopen and expand it fresh on every check.
+    async function openLegendDetails() {
+      if (isMobile) {
+        await page.getByRole('button', { name: 'คำอธิบายแผนที่' }).click();
+      }
+      const detailsToggle = panel.getByRole('button', { name: 'ดูรายละเอียด' });
+      if ((await detailsToggle.getAttribute('aria-expanded')) !== 'true') {
+        await detailsToggle.click();
+      }
+    }
+    function closeLegendIfMobile() {
+      return isMobile ? page.keyboard.press('Escape') : Promise.resolve();
     }
 
-    // On by default: the honest disclaimer copy must already be in the legend.
-    const explanation = page.getByText('ไม่ใช่หลักฐานการแพร่ระบาดที่ยืนยันแล้ว', { exact: false });
+    const explanation = panel.getByText('ไม่ใช่ขอบเขตการระบาดที่ยืนยันแล้ว', { exact: false });
+
+    // On by default: the honest disclaimer copy is available behind "ดูรายละเอียด".
+    await openLegendDetails();
     await expect(explanation).toBeVisible();
+    await closeLegendIfMobile();
 
     await page.getByRole('button', { name: isMobile ? 'ตัวกรอง' : 'เลเยอร์แผนที่' }).click();
     const toggle = page.getByRole('checkbox', {
@@ -129,37 +165,68 @@ test.describe('/map — 2km monitoring radius', () => {
     await toggle.click();
     await expect(toggle).not.toBeChecked();
     await page.keyboard.press('Escape');
+
+    await openLegendDetails();
     await expect(explanation).toBeHidden();
+    await closeLegendIfMobile();
 
     await page.getByRole('button', { name: isMobile ? 'ตัวกรอง' : 'เลเยอร์แผนที่' }).click();
     await toggle.click();
     await page.keyboard.press('Escape');
+
+    await openLegendDetails();
     await expect(explanation).toBeVisible();
   });
 });
 
-test.describe('/map — legend is collapsible at every breakpoint', () => {
-  test('the legend can be collapsed and re-expanded, not just on mobile', async ({ page }) => {
+test.describe('/map — legend: desktop collapse/expand', () => {
+  test('the floating legend card can be collapsed and re-expanded', async ({ page }) => {
+    test.skip(
+      (page.viewportSize()?.width ?? 1280) < 768,
+      'desktop/tablet only — mobile uses a bottom sheet instead (see the mobile test below)'
+    );
     await gotoMap(page);
     await waitForMapReady(page);
 
-    // Below md the legend already starts collapsed (asserted elsewhere); this
-    // test is about the fix that desktop/tablet used to have no way to put
-    // the panel away at all.
-    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
-    if (isMobile) {
-      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
-    }
-
-    const legendHeading = page.getByText('คำอธิบายสัญลักษณ์');
+    const panel = legendPanel(page, false);
+    const legendHeading = panel.getByText('คำอธิบายแผนที่', { exact: true });
+    // Expanded by default on desktop/tablet — no click needed to see it first.
     await expect(legendHeading).toBeVisible();
 
-    await page.getByRole('button', { name: 'ซ่อนคำอธิบายสัญลักษณ์' }).click();
+    await page.getByRole('button', { name: 'ซ่อนคำอธิบายแผนที่' }).click();
     await expect(legendHeading).toBeHidden();
-    await expect(page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'แสดงคำอธิบายแผนที่' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    await page.getByRole('button', { name: 'แสดงคำอธิบายแผนที่' }).click();
     await expect(legendHeading).toBeVisible();
+  });
+});
+
+test.describe('/map — legend: mobile bottom sheet', () => {
+  test('the legend opens as a bottom sheet on mobile and closes normally', async ({ page }) => {
+    test.skip(
+      (page.viewportSize()?.width ?? 1280) >= 768,
+      'mobile only — desktop/tablet use a floating card instead (see the desktop test above)'
+    );
+    await gotoMap(page);
+    await waitForMapReady(page);
+
+    const panel = legendPanel(page, true);
+    const legendTitle = panel.getByText('คำอธิบายแผนที่', { exact: true });
+    // Never left permanently open over the map — collapsed by default.
+    await expect(legendTitle).toBeHidden();
+
+    await page.getByRole('button', { name: 'คำอธิบายแผนที่' }).click();
+    await expect(legendTitle).toBeVisible();
+
+    // Last item in the sheet is reachable — its own scroll container, not
+    // clipped by the sheet's max-height.
+    const summaryLink = panel.getByRole('button', { name: 'ดูอันดับพื้นที่ →' });
+    await summaryLink.scrollIntoViewIfNeeded();
+    await expect(summaryLink).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(legendTitle).toBeHidden();
   });
 });
 
@@ -170,18 +237,21 @@ test.describe('/map — operational events are discoverable by default', () => {
     await gotoMap(page);
     await waitForMapReady(page);
 
-    if ((page.viewportSize()?.width ?? 1280) < 768) {
-      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    if (isMobile) {
+      await page.getByRole('button', { name: 'คำอธิบายแผนที่' }).click();
     }
 
     // A first-time visitor must see operational-event counts without ever
     // discovering a hidden layer toggle — this is the fix for "the map still
     // looks disconnected from the ~64-event intelligence pipeline".
-    await expect(page.getByText(/เหตุการณ์ที่มีพิกัดแน่นอน จาก \d+ เหตุการณ์ทั้งหมด/)).toBeVisible();
+    await expect(
+      legendPanel(page, isMobile).getByText(/เหตุการณ์ที่มีพิกัดแน่นอน จาก \d+ เหตุการณ์ทั้งหมด/)
+    ).toBeVisible();
+    if (isMobile) await page.keyboard.press('Escape'); // close the legend sheet first
 
     // Confirm the toggle itself is checked by default, not just that some
     // count text happens to render.
-    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
     await page.getByRole('button', { name: isMobile ? 'ตัวกรอง' : 'เลเยอร์แผนที่' }).click();
     await expect(page.getByRole('checkbox', { name: 'เหตุการณ์ที่เชื่อมโยง (ทดลอง)' })).toBeChecked();
   });
@@ -198,7 +268,7 @@ test.describe('/map — event detail panel', () => {
     // ตำแหน่งบนแผนที่" button drives the exact same state transition
     // (setSelectedEventSlug → <EventPanel>) that a canvas marker click does,
     // so it exercises the real code path deterministically.
-    await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
+    await page.getByRole('button', { name: /แสดงอันดับพื้นที่|ซ่อนอันดับพื้นที่/ }).click();
     const list = page.getByRole('dialog', { name: /อันดับพื้นที่/ });
     await expect(list).toBeVisible();
 
@@ -305,12 +375,18 @@ test.describe('/map — province filter', () => {
     await waitForMapReady(page);
 
     const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
-    if (isMobile) {
-      await page.getByRole('button', { name: 'แสดงคำอธิบายสัญลักษณ์' }).click();
+    const panel = legendPanel(page, isMobile);
+
+    // Mobile's legend is a modal sheet — it must be closed before the "ตัวกรอง"
+    // sheet can be opened, so re-open/close it around each read instead of
+    // leaving it open for the whole test (see the mobile-sheet test above).
+    async function expectReportLine(text: string) {
+      if (isMobile) await page.getByRole('button', { name: 'คำอธิบายแผนที่' }).click();
+      await expect(panel.getByText(/^แสดง \d+ รายงานจากประชาชน$/)).toHaveText(text);
+      if (isMobile) await page.keyboard.press('Escape');
     }
 
-    const reportLine = page.getByText(/^แสดง \d+ รายงานจากประชาชน$/);
-    await expect(reportLine).toHaveText(`แสดง ${initialCount} รายงานจากประชาชน`);
+    await expectReportLine(`แสดง ${initialCount} รายงานจากประชาชน`);
 
     async function openProvincePicker() {
       if (isMobile) {
@@ -334,25 +410,25 @@ test.describe('/map — province filter', () => {
     await openProvincePicker();
     await selectProvince('ชลบุรี');
     await closePicker();
-    await expect(reportLine).toHaveText(`แสดง ${chonburiCount} รายงานจากประชาชน`);
+    await expectReportLine(`แสดง ${chonburiCount} รายงานจากประชาชน`);
 
     // Add Rayong — union.
     await openProvincePicker();
     await selectProvince('ระยอง');
     await closePicker();
-    await expect(reportLine).toHaveText(`แสดง ${unionCount} รายงานจากประชาชน`);
+    await expectReportLine(`แสดง ${unionCount} รายงานจากประชาชน`);
 
     // Remove Rayong — back to Chonburi-only.
     await openProvincePicker();
     await selectProvince('ระยอง');
     await closePicker();
-    await expect(reportLine).toHaveText(`แสดง ${chonburiCount} รายงานจากประชาชน`);
+    await expectReportLine(`แสดง ${chonburiCount} รายงานจากประชาชน`);
 
     // Clear — full count returns.
     await openProvincePicker();
     await page.getByRole('button', { name: 'ล้าง' }).click();
     await closePicker();
-    await expect(reportLine).toHaveText(`แสดง ${initialCount} รายงานจากประชาชน`);
+    await expectReportLine(`แสดง ${initialCount} รายงานจากประชาชน`);
   });
 
   test('province filter also narrows the priority panel, not just citizen reports', async ({
@@ -374,7 +450,7 @@ test.describe('/map — province filter', () => {
     await gotoMap(page);
     await waitForMapReady(page);
 
-    await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
+    await page.getByRole('button', { name: /แสดงอันดับพื้นที่|ซ่อนอันดับพื้นที่/ }).click();
     const dialog = page.getByRole('dialog', { name: /อันดับพื้นที่/ });
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('li')).toHaveCount(initialCount);
@@ -390,7 +466,7 @@ test.describe('/map — province filter', () => {
     }
     await page.keyboard.press('Escape');
 
-    await page.getByRole('button', { name: /อันดับพื้นที่/ }).click();
+    await page.getByRole('button', { name: /แสดงอันดับพื้นที่|ซ่อนอันดับพื้นที่/ }).click();
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('li')).toHaveCount(chonburiCount);
   });

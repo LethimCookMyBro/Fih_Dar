@@ -34,10 +34,7 @@ test.describe('/about — team section', () => {
     await page.goto('/about');
     await expect(page.getByRole('heading', { name: 'ทีมนกพิราบก้าวร้าว' })).toBeVisible();
 
-    await page
-      .getByAltText(/avatar$/)
-      .first()
-      .scrollIntoViewIfNeeded();
+    await page.locator('[data-profile-card]').first().scrollIntoViewIfNeeded();
     // Let every scroll-reveal entrance animation finish before measuring idle.
     // A fixed sleep is not enough: under parallel full-suite load the 0.7s
     // whileInView reveals can start late and leak rAF into the measurement
@@ -136,6 +133,34 @@ test.describe('/about — team section', () => {
     });
     expect(state.overlayOpacity).toBe('0');
     expect(state.transform).toBe('none');
+  });
+
+  test('all four cards render the shared team image, decoratively labelled', async ({ page }) => {
+    await page.goto('/about');
+    await expect(page.getByRole('heading', { name: 'ทีมนกพิราบก้าวร้าว' })).toBeVisible();
+
+    const cards = page.locator('[data-profile-card]');
+    await expect(cards).toHaveCount(4);
+
+    // next/image lazy-loads below the fold; a plain scroll (not
+    // scrollIntoViewIfNeeded, which requires the target to stop moving —
+    // fights the section's own scroll-reveal transition, and mouse.wheel,
+    // which mobile WebKit doesn't support) is enough to bring all four cards
+    // into the loader's viewport margin at once.
+    for (let i = 0; i < 4; i += 1) {
+      const img = cards.nth(i).locator('img');
+      // Scroll incrementally per card (mobile stacks all 4 in one column —
+      // one fixed-size scroll doesn't reach the last one) rather than one
+      // large jump, since a large jump can land past the lazy-load margin
+      // for cards further down.
+      await img.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      await expect(img).toHaveAttribute('alt', '');
+      // Same shared asset on every card, never four fabricated individual portraits.
+      await expect(img).toHaveAttribute('src', /tuff-pigeon/);
+      await expect
+        .poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+    }
   });
 
   test('scrolling past the team section reaches the CTA at the bottom of the page', async ({

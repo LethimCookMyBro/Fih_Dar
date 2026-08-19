@@ -435,31 +435,35 @@ export function ReportForm() {
           )}
         </AnimatePresence>
 
-        {/* Full-width on mobile (thumb-reachable), intrinsic on desktop.
-            The label is wrapped in a grid stack so the pending and idle strings
-            occupy the same cell — the button keeps one width and does not
-            reflow when submission starts. */}
-        <Button
-          type='submit'
-          disabled={mutation.isPending}
-          className='h-12 w-full px-6 text-[0.9375rem] sm:w-auto sm:self-end'
-        >
-          <span className='grid place-items-center'>
-            <span
-              aria-hidden={!mutation.isPending}
-              className={`col-start-1 row-start-1 flex items-center gap-2 ${mutation.isPending ? '' : 'invisible'}`}
-            >
-              <Icons.spinner className='animate-spin' />
-              กำลังส่งรายงาน…
+        {/* Centered beneath the consent row so it reads as the form's one
+            final action, not a stray right-aligned control. Full-width on
+            mobile (thumb-reachable), a fixed comfortable width on desktop —
+            never full-bleed there. The label is wrapped in a grid stack so
+            the pending and idle strings occupy the same cell — the button
+            keeps one width and does not reflow when submission starts. */}
+        <div className='mt-2 flex justify-center'>
+          <Button
+            type='submit'
+            disabled={mutation.isPending}
+            className='h-12 w-full px-6 text-[0.9375rem] sm:w-64'
+          >
+            <span className='grid place-items-center'>
+              <span
+                aria-hidden={!mutation.isPending}
+                className={`col-start-1 row-start-1 flex items-center gap-2 ${mutation.isPending ? '' : 'invisible'}`}
+              >
+                <Icons.spinner className='animate-spin' />
+                กำลังส่งรายงาน…
+              </span>
+              <span
+                aria-hidden={mutation.isPending}
+                className={`col-start-1 row-start-1 ${mutation.isPending ? 'invisible' : ''}`}
+              >
+                ส่งรายงาน
+              </span>
             </span>
-            <span
-              aria-hidden={mutation.isPending}
-              className={`col-start-1 row-start-1 ${mutation.isPending ? 'invisible' : ''}`}
-            >
-              ส่งรายงาน
-            </span>
-          </span>
-        </Button>
+          </Button>
+        </div>
       </FormSection>
     </form>
   );
