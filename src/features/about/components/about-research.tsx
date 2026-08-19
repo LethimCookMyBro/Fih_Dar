@@ -1,8 +1,15 @@
+import Image from 'next/image';
+
 import { Icons } from '@/components/icons';
 
 // Bibliographic fields verified against Crossref/DOI records before writing this file.
 // Related work only: FihDar does not implement these papers' methods or verification
 // technology (e.g. eDNA), and a digital signal here is not confirmed field presence.
+//
+// First-page previews are rendered from the papers' own official open-access PDFs
+// (all three are CC BY 4.0 per Crossref license metadata) — never fabricated covers.
+// Aquaculture Reports blocks automated PDF fetches (403), so paper 1 has no preview
+// image; it gets the neutral placeholder instead of a stand-in image.
 const PAPERS = [
   {
     category: 'ปลาหมอคางดำในประเทศไทย',
@@ -10,10 +17,9 @@ const PAPERS = [
     title:
       'Genetic diversity, population structure and multiple introductions of invasive blackchin tilapia Sarotherodon melanotheron in Thailand',
     venue: 'Aquaculture Reports · 2026',
-    summary:
-      'ศึกษาพันธุกรรมและโครงสร้างประชากรปลาหมอคางดำในประเทศไทย พร้อมวิเคราะห์การกระจายและการนำเข้าสู่หลายพื้นที่',
-    relation: 'สนับสนุนบริบทปัญหาและความจำเป็นของระบบเฝ้าระวังเชิงพื้นที่ในประเทศไทย',
-    doi: '10.1016/j.aqrep.2026.103575'
+    tagline: 'บริบทปลาหมอคางดำในประเทศไทย',
+    doi: '10.1016/j.aqrep.2026.103575',
+    previewSrc: null
   },
   {
     category: 'Digital Surveillance',
@@ -21,19 +27,19 @@ const PAPERS = [
     title:
       'Integrating social media and environmental DNA records to enhance surveillance and improve early detection of invasive species',
     venue: 'NeoBiota · 2025',
-    summary: 'ใช้ข้อมูลออนไลน์ช่วยค้นหาพื้นที่ต้องสงสัยของชนิดพันธุ์รุกราน ก่อนตรวจสอบต่อด้วยหลักฐานจากพื้นที่จริง',
-    relation: 'สอดคล้องกับแนวคิดของ FihDar ที่เปลี่ยนสัญญาณดิจิทัลให้เป็นพื้นที่สำหรับการตรวจสอบภาคสนาม',
-    doi: '10.3897/neobiota.102.151710'
+    tagline: 'สัญญาณดิจิทัลสู่การตรวจสอบภาคสนาม',
+    doi: '10.3897/neobiota.102.151710',
+    previewSrc: '/research/paper-digital-surveillance-2025.webp'
   },
   {
-    category: 'Spatial Prioritization',
+    category: 'Aquatic Field Prioritization',
     icon: Icons.target,
     title:
-      'A site prioritization tool for invasive species management: Integrating diverse spatial data to improve decision making',
-    venue: 'Ecological Informatics · 2026',
-    summary: 'ผสานข้อมูลเชิงพื้นที่หลายประเภทเพื่อช่วยจัดลำดับพื้นที่สำหรับการติดตามและจัดการชนิดพันธุ์รุกราน',
-    relation: 'สอดคล้องกับแนวคิดการช่วยเจ้าหน้าที่เลือกพื้นที่ที่ควรตรวจสอบก่อนเมื่อทรัพยากรมีจำกัด',
-    doi: '10.1016/j.ecoinf.2026.103779'
+      'Increasing broad-spectrum aquatic invasive species early detection program efficiency through biased site selection and gear allocation',
+    venue: 'Biological Invasions · 2024',
+    tagline: 'เลือกพื้นที่ตรวจเมื่อทรัพยากรมีจำกัด',
+    doi: '10.1007/s10530-024-03306-5',
+    previewSrc: '/research/paper-aquatic-prioritization-2024.webp'
   }
 ] as const;
 
@@ -59,37 +65,46 @@ export function AboutResearch() {
                 target='_blank'
                 rel='noopener noreferrer'
                 aria-label={`อ่านงานวิจัย: ${paper.title} (เปิดในแท็บใหม่)`}
-                className='group focus-visible:ring-ring bg-card ring-foreground/10 flex h-full flex-col gap-4 rounded-xl p-5 text-card-foreground ring-1 outline-none transition-[transform,box-shadow] motion-safe:hover:-translate-y-1 hover:shadow-md focus-visible:ring-2 focus-visible:ring-offset-2'
+                className='group focus-visible:ring-ring bg-card ring-foreground/10 flex h-full flex-col overflow-hidden rounded-xl text-card-foreground ring-1 outline-none transition-[transform,box-shadow] motion-safe:hover:-translate-y-1 hover:shadow-md focus-visible:ring-2 focus-visible:ring-offset-2'
               >
-                <div>
-                  <div className='bg-accent text-accent-foreground flex h-10 w-10 items-center justify-center rounded-lg'>
-                    <paper.icon className='h-5 w-5' aria-hidden='true' />
-                  </div>
-                  <p className='text-muted-foreground mt-3 font-mono text-[0.6875rem] tracking-[0.14em] uppercase'>
-                    {paper.category}
-                  </p>
-                </div>
-                <div className='flex flex-1 flex-col'>
-                  <h3 className='text-base leading-snug font-semibold text-balance'>
-                    {paper.title}
-                  </h3>
-                  <p className='text-muted-foreground mt-1.5 text-sm'>{paper.venue}</p>
-                  <p className='mt-4 text-sm leading-relaxed'>{paper.summary}</p>
-                  <p className='text-muted-foreground mt-3 text-sm leading-relaxed'>
-                    ความเกี่ยวข้องกับ FihDar: {paper.relation}
-                  </p>
-                  <div className='mt-5 flex items-center justify-between gap-3 border-t pt-4'>
-                    <span className='text-primary inline-flex shrink-0 items-center gap-1 text-sm font-medium'>
-                      อ่านงานวิจัย
-                      <Icons.externalLink
-                        className='h-3.5 w-3.5 transition-transform motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5'
+                <div className='bg-muted relative aspect-[4/5] w-full overflow-hidden'>
+                  {paper.previewSrc ? (
+                    <Image
+                      src={paper.previewSrc}
+                      alt={`หน้าแรกของงานวิจัย ${paper.title}`}
+                      fill
+                      sizes='(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw'
+                      className='object-cover object-top transition-transform duration-300 motion-safe:group-hover:scale-[1.02]'
+                    />
+                  ) : (
+                    <div className='flex h-full w-full items-center justify-center'>
+                      <paper.icon
+                        className='text-muted-foreground/30 h-16 w-16'
                         aria-hidden='true'
                       />
-                    </span>
-                    <span className='text-muted-foreground min-w-0 truncate font-mono text-[0.6875rem]'>
-                      DOI: {paper.doi}
-                    </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className='flex flex-1 flex-col gap-2 p-5'>
+                  <div className='flex items-center gap-2'>
+                    <paper.icon className='text-primary h-4 w-4 shrink-0' aria-hidden='true' />
+                    <p className='text-muted-foreground font-mono text-[0.6875rem] tracking-[0.14em] uppercase'>
+                      {paper.category}
+                    </p>
                   </div>
+                  <h3 className='line-clamp-3 text-base leading-snug font-semibold text-balance'>
+                    {paper.title}
+                  </h3>
+                  <p className='text-muted-foreground text-sm'>{paper.venue}</p>
+                  <p className='text-sm'>{paper.tagline}</p>
+                  <span className='text-primary mt-auto inline-flex items-center gap-1 pt-3 text-sm font-medium'>
+                    อ่านงานวิจัย
+                    <Icons.externalLink
+                      className='h-3.5 w-3.5 transition-transform motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5'
+                      aria-hidden='true'
+                    />
+                  </span>
                 </div>
               </a>
             </li>
