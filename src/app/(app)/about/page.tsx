@@ -4,6 +4,7 @@ import { Reveal } from '@/components/visuals/reveal';
 import { AboutHero } from '@/features/about/components/about-hero';
 import { CapabilityTiltedCards } from '@/features/about/components/capability-tilted-cards';
 import { ProductCardSwap } from '@/features/about/components/product-card-swap';
+import { AboutResearch } from '@/features/about/components/about-research';
 import { AboutStory, AboutCta } from '@/features/about/components/about-story-team-cta';
 import { AboutTeam } from '@/features/about/components/about-team';
 
@@ -23,6 +24,9 @@ export default function AboutPage() {
       </Reveal>
       <Reveal>
         <ProductCardSwap />
+      </Reveal>
+      <Reveal>
+        <AboutResearch />
       </Reveal>
       <Reveal>
         <AboutStory />
